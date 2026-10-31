@@ -1,0 +1,60 @@
+"""Vectorised Riemann-Siegel Z(t): main sum + C0,C1,C2 remainder.  Phases in long double."""
+import numpy as np
+LD = np.longdouble
+_COEF = np.load("rs_cheb_coef.npy"); _A, _B = -0.15, 1.15
+PI_L = LD(np.pi) if np.finfo(LD).eps < 1e-18 else LD(np.pi)
+TWO_PI_L = LD("6.283185307179586476925286766559005768394")
+
+def theta_ld(t):
+    t = LD(t)
+    return (t / 2) * np.log(t / TWO_PI_L) - t / 2 - TWO_PI_L / 16 + 1 / (48 * t) + 7 / (5760 * t**3)
+
+def corr(t):
+    """RS remainder (without the main sum)."""
+    t = np.asarray(t, float); r = np.sqrt(t / (2 * np.pi)); N = np.floor(r); p = r - N
+    x = (2 * p - (_A + _B)) / (_B - _A)
+    C = [np.polynomial.chebyshev.chebval(x, _COEF[j]) for j in range(3)]
+    q = (2 * np.pi / t)
+    sgn = np.where(N % 2 == 0, -1.0, 1.0)             # (-1)^(N-1)
+    return sgn * q**0.25 * (C[0] + C[1] * q**0.5 + C[2] * q)
+
+def Z(t):
+    """Direct evaluation at arbitrary (array) t."""
+    t = np.atleast_1d(np.asarray(t, dtype=float)); out = np.empty_like(t)
+    for i, ti in enumerate(t):
+        N = int(np.floor(np.sqrt(ti / (2 * np.pi)))); n = np.arange(1, N + 1, dtype=LD)
+        ph = theta_ld(ti) - LD(ti) * np.log(n)
+        ph = np.mod(ph, TWO_PI_L).astype(float)
+        out[i] = 2 * np.sum(np.cos(ph) / np.sqrt(n.astype(float))) + corr(ti)
+    return out
+
+
+def corr_N(t, N):
+    """RS remainder with a FIXED N (p may leave [0,1] slightly near an N-boundary; tables cover [-0.15, 1.15])."""
+    t = np.asarray(t, float); p = np.sqrt(t / (2 * np.pi)) - N
+    x = (2 * p - (_A + _B)) / (_B - _A)
+    C = [np.polynomial.chebyshev.chebval(x, _COEF[j]) for j in range(3)]
+    q = 2 * np.pi / t
+    return (-1.0 if N % 2 == 0 else 1.0) * q**0.25 * (C[0] + C[1] * q**0.5 + C[2] * q)
+
+def Z_uniform(tc, h, M, N=None):
+    """Z at t_k = tc + h*(k - (M-1)/2), k < M  (tc exactly representable; offsets handled relative to tc).
+    Taylor-expanded phases + complex recurrence (fast)."""
+    if N is None:
+        N = int(np.floor(np.sqrt(tc / (2 * np.pi))))
+    n = np.arange(1, N + 1, dtype=LD)
+    b = np.mod(theta_ld(tc) - LD(tc) * np.log(n), TWO_PI_L).astype(float)
+    lnn = np.log(np.arange(1, N + 1, dtype=float))
+    thp = 0.5 * np.log(tc / (2 * np.pi)) - 1 / (48 * tc**2)
+    w = thp - lnn
+    d0 = -h * (M - 1) / 2
+    u = np.arange(1, N + 1, dtype=float) ** -0.5 * np.exp(1j * (b + d0 * w))
+    step = np.exp(1j * h * w)
+    S = np.empty(M, complex)
+    for k in range(M):
+        S[k] = u.sum(); u *= step
+    d = d0 + h * np.arange(M)
+    thpp = 1 / (2 * tc) + 1 / (24 * tc**3); th3 = -1 / (2 * tc**2); th4 = 1 / tc**3
+    c = 0.5 * thpp * d**2 + th3 * d**3 / 6 + th4 * d**4 / 24
+    t = tc + d
+    return 2 * np.real(np.exp(1j * c) * S) + corr_N(t, N)
