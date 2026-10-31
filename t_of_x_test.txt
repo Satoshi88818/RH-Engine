@@ -1,0 +1,165 @@
+# Pushing to γ ≈ 10¹¹, comparing with Odlyzko's tables, and testing t(x) ~ x^(−2/3) window by window
+
+## Summary
+
+1. **Survey to γ ≈ 10¹¹ (and 2.7×10¹¹) done.** About 1.95 million zeros at heights 10⁷–10¹¹ plus 2.0 million between 10³ and 1.13×10⁶. Counts match the Riemann–von Mangoldt count to within ±1.1 in every run.
+2. **Odlyzko comparison done (through a GitHub mirror; see caveat).** All 2,000,403 table zeros in 1000 < γ < 1,132,490.66 match mine one-to-one. The 25 closest pairs are the same set and their gaps agree to 3.0e-09. At γ ≈ 2.68×10¹¹ all 10,000 table zeros match, and the 12 closest pairs are the same set (gaps agree to 5e-07).
+3. **A survey bug was found through that comparison and fixed** (a close pair straddling a window boundary). All results below use the fixed survey. The numbers in `README_rs_scaling.md` came from the earlier version and should be treated as superseded by this file.
+4. **Lemma at the top end:** for the 9 closest pairs at 10¹⁰, 10¹¹ and 2.7×10¹¹, the measured collision time is 1.0001–1.0010 times r²/8.
+5. **Window-by-window test:** the smallest gap in a window of N₀ zeros follows the random-matrix extreme-value law, with ν_min ∝ N₀^(−1/3). Pooled over 58,467 (dataset, N₀) windows, the 5% and 1% coverage levels come out at 0.955 and 0.991 (expected 0.95 and 0.99). This supports a first-collision time that scales like N₀^(−2/3)/log²x, hence about x^(−2/3) for all zeros in [x, 2x] **if the same law keeps holding at far larger N₀ than I can test**.
+
+This is evidence about how "barely true" RH would be. It is not a proof, and it says nothing about whether a zero is off the line.
+
+## 1. Survey, and the bug
+
+The survey is the one in `README_rs_scaling.md` (fast Riemann–Siegel Z, coarse grid 0.04, refinement at 0.002 for close pairs). It now scales to γ ≈ 10¹¹; the evaluator error is about 10⁻⁶ at 10¹¹ and 7×10⁻⁶ at 2.7×10¹¹ (measured against `mpmath`), which only matters for gaps below about 0.003.
+
+**The bug.** In the first version, windows were contiguous. A close pair straddling a window boundary was split across two windows, so neither window saw both zeros and the refinement never triggered. Near 2.7×10¹¹ one such pair had gap 0.0241 against the table's 0.02243 (a 7% error), and the worst 10⁻⁴-size position errors in the zeros6 comparison all sat within 0.02 of a window boundary. **Fix:** windows are now 60 wide and overlap, and a window only accepts roots from its central 50. After the fix the same pair agrees with the table to 10⁻⁸.
+
+**Results** (published rows are straight from the Odlyzko tables; ν = gap × local mean density; P = probability under the GUE small-gap law that the minimum would be at most as small as observed):
+
+| dataset | zeros | ⟨ln(γ/2π)⟩ | min ν | GUE median min ν | P | closest gap (γ) at | lifetime gap²/2 | pairs ν < 0.1: obs/expected |
+|---|---|---|---|---|---|---|---|---|
+| zeros6 [1e+03,1e+04) (pub.) | 9,492 | 6.7 | 0.0421 | 0.0406 | 0.54 | 0.03770 at 7005.08 | 7.11e-04 | 5/10 |
+| zeros6 [1e+04,1e+05) (pub.) | 127,926 | 9.0 | 0.0219 | 0.0170 | 0.77 | 0.01470 at 71732.9 | 1.08e-04 | 96/139 |
+| zeros6 [1e+05,1e+06) (pub.) | 1,609,076 | 11.3 | 0.0054 | 0.0073 | 0.25 | 0.00296 at 663319 | 4.38e-06 | 1490/1751 |
+| zeros6 [1e6,1.13e6) (pub.) | 253,905 | 12.0 | 0.0130 | 0.0136 | 0.46 | 0.00679 at 1.09426e+06 | 2.30e-05 | 233/276 |
+| zeros3 ~2.7e11 (pub.) | 9,999 | 24.5 | 0.0216 | 0.0399 | 0.11 | 0.00556 at 2.67653e+11 | 1.54e-05 | 6/11 |
+| mine 1e7 | 500,049 | 14.3 | 0.0146 | 0.0108 | 0.82 | 0.00640 at 1.00753e+07 | 2.05e-05 | 515/544 |
+| mine 1e8 | 500,030 | 16.6 | 0.0097 | 0.0108 | 0.39 | 0.00366 at 1.00025e+08 | 6.69e-06 | 481/544 |
+| mine 1e9 | 500,001 | 18.9 | 0.0115 | 0.0108 | 0.56 | 0.00381 at 1.00004e+09 | 7.26e-06 | 499/544 |
+| mine 1e10 | 300,122 | 21.2 | 0.0098 | 0.0128 | 0.27 | 0.00292 at 1e+10 | 4.26e-06 | 312/327 |
+| mine 1e11 | 150,105 | 23.5 | 0.0199 | 0.0161 | 0.73 | 0.00533 at 1e+11 | 1.42e-05 | 141/163 |
+
+Counts vs Riemann–von Mangoldt for my surveys: 10³–1.13×10⁶: −0.3; 10⁷: +0.3; 10⁸: −0.6; 10⁹: +1.1; 10¹⁰: −0.3; 10¹¹: −0.3.
+
+Close pairs are rarer than the GUE small-gap law predicts at lower heights (about 50% at 10³, rising to about 90% at 10⁷ and above). This is the known slow approach of zeta zeros to GUE.
+
+## 2. Comparison with Odlyzko's tables
+
+**Source and caveat.** Odlyzko's own files were not reachable through my tools. I used the GitHub mirror `nightbay/odzeros`, whose author says the files were whitespace-sanitised but the numbers are unchanged. I did not verify them byte-for-byte against the originals. The agreement below is itself evidence that both lists are consistent.
+
+**zeros6 (first 2,001,052 zeros), compared for 1000 < γ < 1,132,490.66.** The table has 2,000,403 zeros there and my list has 2,000,405. The extra 2 are at 1132491.10, 1132491.46, beyond the table's last zero, and every table zero is matched to a distinct zero of mine.
+
+| γ band | table zeros | median |Δγ| | rms | max |
+|---|---|---|---|---|
+| 1e+03 – 1.0e+04 | 9,493 | 5.8e-08 | 1.8e-07 | 2.5e-06 |
+| 1e+04 – 1.0e+05 | 127,927 | 1.5e-07 | 4.6e-07 | 7.8e-06 |
+| 1e+05 – 1.0e+06 | 1,609,077 | 3.0e-07 | 9.4e-07 | 1.7e-05 |
+| 1e+06 – 1.2e+06 | 253,906 | 3.7e-07 | 1.1e-06 | 1.9e-05 |
+
+The position differences are dominated by my coarse root interpolation (the table's stated accuracy is 4×10⁻⁹), not by the table. **The comparison that matters is the closest pairs**, where I refine at 0.002:
+
+| rank | γ | gap (table) | gap (mine) | difference |
+|---|---|---|---|---|
+| 1 | 663318.5083 | 0.002958654 | 0.002958653 | -6.3e-10 |
+| 2 | 273193.6631 | 0.005703705 | 0.005703703 | -1.5e-09 |
+| 3 | 712004.0005 | 0.006348218 | 0.006348217 | -7.9e-10 |
+| 4 | 1094262.1250 | 0.006786166 | 0.006786165 | -7.6e-10 |
+| 5 | 511464.8957 | 0.006807652 | 0.006807651 | -6.0e-10 |
+| 6 | 645275.9393 | 0.007390151 | 0.007390152 | +6.5e-10 |
+
+All 25 closest pairs are the same set in both lists, with gaps agreeing to at most 3.0e-09. The closest pair in the entire table is at γ = 663,318.508 with gap 0.002958654. Lehmer's pair near 7005.06 has gap 0.037698, and the smallest gap below γ = 1000 is 0.310.
+
+**zeros3 (zeros 10¹²+1 … 10¹²+10⁴, γ ≈ 2.68×10¹¹).** All 10,000 table zeros match one-to-one (median |Δγ| 3.4e-06, max 7.3e-05). The 12 closest pairs are the same set:
+
+| rank | offset from 267,653,395,647 | gap (table) | gap (mine) | difference |
+|---|---|---|---|---|
+| 1 | 2216.1345 | 0.00555697 | 0.00555730 | +3.3e-07 |
+| 2 | 1090.4666 | 0.01138108 | 0.01138102 | -6.5e-08 |
+| 3 | 2243.6548 | 0.01471610 | 0.01471661 | +5.1e-07 |
+| 4 | 1913.4448 | 0.02108504 | 0.02108541 | +3.7e-07 |
+| 5 | 1219.2509 | 0.02189501 | 0.02189517 | +1.6e-07 |
+| 6 | 780.4884 | 0.02242833 | 0.02242842 | +9.0e-08 |
+
+Differences of order 10⁻⁷ at this height are the evaluator error (Z accurate to about 10⁻⁵ here), not the table.
+
+## 3. The lemma at γ = 10¹⁰ … 2.7×10¹¹
+
+Exact backward flow (as in `README_rs_scaling.md`) around the 3 closest pairs of each dataset:
+
+| dataset | gap (γ) | r²/8 | measured s_c | s_c / (r²/8) |
+|---|---|---|---|---|
+| 1e10 | 0.002918 | 4.26e-06 | 4.26e-06 | 1.0002 |
+| 1e10 | 0.003252 | 5.29e-06 | 5.29e-06 | 1.0001 |
+| 1e10 | 0.006028 | 1.82e-05 | 1.82e-05 | 1.0003 |
+| 1e11 | 0.005330 | 1.42e-05 | 1.42e-05 | 1.0003 |
+| 1e11 | 0.007300 | 2.66e-05 | 2.67e-05 | 1.0007 |
+| 1e11 | 0.007891 | 3.11e-05 | 3.11e-05 | 1.0005 |
+| 2.7e11 (zeros3 range) | 0.005557 | 1.54e-05 | 1.54e-05 | 1.0002 |
+| 2.7e11 (zeros3 range) | 0.011381 | 6.48e-05 | 6.48e-05 | 1.0006 |
+| 2.7e11 (zeros3 range) | 0.014717 | 1.08e-04 | 1.08e-04 | 1.0010 |
+
+So for isolated close pairs the collision time equals r²/8 to within 0.1%, up to γ ≈ 2.7×10¹¹.
+
+## 4. Window-by-window test of the extreme-value law
+
+**Claim tested.** For a window of N₀ consecutive zeros, ν_min (the smallest normalised gap) follows P(ν_min > x) ≈ exp(−N₀F(x)) with F(x) = (π²/9)x³ − (2π⁴/225)x⁵. Then u = N₀F(ν_min) should be Exp(1), the median of ν_min should scale like N₀^(−1/3), and the window's first-collision time τ = gap²/2 = (2π²/L²)ν_min² should scale like N₀^(−2/3)/L². I partitioned each dataset into non-overlapping windows of N₀ ∈ {100 … 30000} zeros.
+
+| dataset | N₀ | windows | KS p (u vs Exp(1)) | mean u | coverage of 5% quantile (expect 0.95) | coverage of 1% quantile (expect 0.99) |
+|---|---|---|---|---|---|---|
+| pub. zeros6 [1e+03,1e+04) | 300 | 31 | 0.01 | 1.77 | 0.935 | 1.000 |
+| pub. zeros6 [1e+04,1e+05) | 1,000 | 127 | 0.00 | 1.52 | 0.976 | 1.000 |
+| pub. zeros6 [1e+05,1e+06) | 1,000 | 1609 | 0.00 | 1.15 | 0.958 | 0.989 |
+| pub. zeros6 [1e6,1.13e6) | 1,000 | 253 | 0.28 | 1.14 | 0.960 | 0.996 |
+| pub. zeros3 (~2.7e11) | 300 | 33 | 0.29 | 1.17 | 0.939 | 0.970 |
+| mine 1e7 | 1,000 | 500 | 0.44 | 1.06 | 0.944 | 0.996 |
+| mine 1e8 | 1,000 | 500 | 0.04 | 1.12 | 0.950 | 0.986 |
+| mine 1e9 | 1,000 | 500 | 0.06 | 1.05 | 0.958 | 0.992 |
+| mine 1e10 | 1,000 | 300 | 0.26 | 1.07 | 0.957 | 0.990 |
+| mine 1e11 | 1,000 | 150 | 0.22 | 1.11 | 0.940 | 0.993 |
+
+(N₀ = 1000 shown, or the largest available for small datasets; `window_test.json` has all N₀.)
+
+- **Coverage:** pooled over all 58,467 windows, 0.955 of windows have first-collision time above the predicted 5% quantile (expected 0.95), and 0.991 above the 1% quantile (expected 0.99). It is slightly conservative, which matches the small-gap deficit.
+- **Exponent:** the slope of log(median ν_min) against log N₀ is -0.30, -0.35, -0.36, -0.36, -0.34, -0.32, -0.33, -0.32 for the 8 datasets with at least 3 window sizes (theory −0.33; mean -0.335).
+- **Where it fails:** KS p-values are tiny at small N₀ and low heights (the small-gap deficit; mean u is 1.1–1.5 below 10⁶) and become acceptable from 10⁷ up (p between 0.04 and 0.9 for N₀ ≥ 1000). Mean u is 1.0–1.3 at 10⁷ and above.
+
+![Window test, closest pairs, lemma, extrapolation](rh_t_of_x_test.png)
+
+## 5. What this says about t(x)
+
+For all zeros in [x, 2x] there are N ≈ x(ln(x/2π) + 2 ln 2 − 1)/2π of them, and the median first-collision time is, to leading order,
+
+> τ_med(x) ≈ (2π²/L²)·(9 ln 2/(π²N))^(2/3) ∝ x^(−2/3) L^(−8/3), L = ln(x/2π).
+
+The window test above supports the N₀^(−2/3) factor from N₀ = 100 to 30,000; the extrapolation to N ≈ 10¹¹–10²² is **not tested** and rests on the GUE small-gap law continuing to hold.
+
+| x | N zeros in [x, 2x] | τ, 5% quantile | τ, median |
+|---|---|---|---|
+| 1e+09 | 3.1e+09 | 3.4e-09 | 1.9e-08 |
+| 1e+11 | 3.8e+11 | 8.9e-11 | 5.0e-10 |
+| 1e+13 | 4.5e+13 | 2.6e-12 | 1.4e-11 |
+| 1e+15 | 5.3e+15 | 7.9e-14 | 4.5e-13 |
+| 1e+18 | 6.4e+18 | 4.8e-16 | 2.7e-15 |
+| 1e+20 | 7.1e+20 | 1.6e-17 | 9.3e-17 |
+| 1e+22 | 7.8e+22 | 5.9e-19 | 3.3e-18 |
+
+So a window criterion "no collision before t(x)" has to shrink like x^(−2/3) times a power of log x, not like 1/log²x. At x ≈ 10¹³ the median first-collision time is about 1.5×10⁻¹¹. By the two-body lemma the closest pair at that height would give Λ ≳ −1.5×10⁻¹¹ by the heuristic of `README_no_collision_bound.md`. That is the same order as the best published Λ lower bound (about −10⁻¹¹), which I am quoting from memory and have not re-verified. The published bound uses a more careful argument than my two-body heuristic, so this is an order-of-magnitude consistency check only.
+
+## 6. Limitations
+
+- Odlyzko's data came through a mirror (see §2).
+- The window test covers N₀ up to 3×10⁴ and heights up to 2.7×10¹¹. The x^(−2/3) law for whole ranges [x, 2x] is an extrapolation of 7–11 orders of magnitude in N.
+- At lower heights (below about 10⁶) the GUE small-gap law over-predicts close pairs, so the window test rejects it there. The law is approached from the conservative side.
+- The lemma is exact for finite real systems; its extension to the infinite system is assumed.
+- Nothing here says anything about a zero off the critical line.
+
+## 7. Next steps
+
+- Compare with the Odlyzko 10²¹/10²² tables. My evaluator cannot reach those heights without a different algorithm (FFT-based Odlyzko–Schönhage).
+- Test the (WNC) idea directly: choose t(x) = τ₅%(x), flow each window back to t(x), and check that all zeros stay real, using the forward-flow tool for t > 0.
+- Improve the small-gap model (finite-height corrections to GUE) so that the lower-height deficit is predicted, not just observed.
+
+## Reproduce
+
+```bash
+pip install mpmath numpy scipy matplotlib
+python rs_tables.py                       # tables for the Riemann–Siegel corrections
+./run_all.sh                              # surveys (~20 min; saves positions)
+python compare_odlyzko.py                 # needs odlyzko/zeros3, zeros6 (mirror above)
+python window_test.py && python final_stats.py
+python flow_check_high.py && python build_report.py
+```
+
+Files: `rh_survey.py`, `rh_survey2.py`, `run_all.sh`, `compare_odlyzko.py`, `window_test.py`, `final_stats.py`, `flow_check_high.py`, `build_report.py`, plus the JSON outputs and `rh_t_of_x_test.png`. `rs_z.py`, `rs_tables.py`, `rs_cheb_coef.npy`, `rh_flow2.py` and `rh_harness.py` are unchanged from earlier.
