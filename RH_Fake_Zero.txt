@@ -1,0 +1,180 @@
+# Fake off-line zero test for the candidate energy E(σ)
+
+## Question
+
+The "Dynamic Spectral Magnetic Field" proposal claims an energy E(σ) that is minimised only at σ = ½, so a zero off the critical line would carry infinite action, be "outside the domain of the theory," and force a different minimum. We test that claim on a concrete E(σ): if we insert a hypothetical off-line zero, does E behave the way the proposal says?
+
+## Methods
+
+**Energy.** For s = σ + it and a window t ∈ [T₀, T₁],
+
+> E(σ) = (1/L) ∫ log|ξ(σ+it)/ξ(0)| dt, L = T₁ − T₀, with ξ(s)/ξ(0) = ∏ᵨ (1 − s/ρ).
+
+**Zeros.** The first 300 nontrivial zeros (`mpmath.zetazero`), each with its conjugate, all on the line. Window: T₀ = 30, T₁ = γ₃₀₀/2 ≈ 270.9, so L ≈ 240.9.
+
+**Fake zeros.** A real off-line zero ρ = ½ + δ + iγ₀ would force, by the functional equation and conjugation symmetry, a full quadruple: ½ ± δ ± iγ₀. We add that quadruple to the 600 real zeros. No real zero is removed.
+
+**Exact evaluation.** Each zero contributes ∫ ½·log((σ−½−β)² + (t−γ)²) dt, which has a closed-form antiderivative, so E and E′ are computed exactly with no sampling noise. The code checks E is exactly symmetric about ½.
+
+**Outputs measured.**
+1. Location of the minimum of E.
+2. E″ on a grid (h = 0.005). *Blind detection*: peaks in E″ more than 20× the median |E″| away from ½.
+3. *Calibrated jump* in E′ across each true cusp, relative to the no-fake baseline. Theory predicts 2π/L ≈ 0.0261 per in-window zero.
+4. Minimum E″ (a convexity check) and whether E stays finite.
+
+**Experiments.**
+- Table 1: sweep δ ∈ {0.02, 0.05, 0.10, 0.20, 0.30, 0.40}, γ₀ = 150.3.
+- Table 2: sweep γ₀ ∈ {40, 100, 150.3, 250, 400}, δ = 0.20. The value 400 lies outside the window and serves as a negative control.
+
+Reproduce: `python rh_fake_zero_test.py` (≈ 50 s the first time to compute zeros, then cached).
+
+## Results
+
+**Baseline (no fake zero).** Minimum at σ = 0.500, no off-axis peaks in E″, min E″ = −0.010.
+
+**Table 1: varying the displacement δ (γ₀ = 150.3)**
+
+| δ | argmin E | blind-detected cusps | calibrated jump per cusp |
+|---|---|---|---|
+| 0.02 | 0.500 | 0.48, 0.52 | 0.0261 |
+| 0.05 | 0.500 | 0.45, 0.55 | 0.0261 |
+| 0.10 | 0.500 | 0.40, 0.60 | 0.0261 |
+| 0.20 | 0.500 | 0.30, 0.70 | 0.0261 |
+| 0.30 | 0.500 | 0.20, 0.80 | 0.0261 |
+| 0.40 | 0.500 | 0.10, 0.90 | 0.0261 |
+
+**Table 2: varying the height γ₀ (δ = 0.20)**
+
+| γ₀ | blind-detected cusps | calibrated jump |
+|---|---|---|
+| 40 | 0.30, 0.70 | 0.0261 |
+| 100 | 0.30, 0.70 | 0.0261 |
+| 150.3 | 0.30, 0.70 | 0.0261 |
+| 250 | 0.30, 0.70 | 0.0261 |
+| 400 (outside window) | none | 0.0000 |
+
+**Finiteness.** With the fake zeros (δ = 0.2), E stays finite at every σ. The change E_fake − E_base is nearly constant (≈ −1.10, range 0.008). Most of that constant comes from the normalisation term, not from any "cost" of the displacement.
+
+![E'' and E with and without a fake zero](rh_fake_zero.png)
+
+## Interpretation
+
+1. **E detects the fake zero, and exactly where it is.** Each displaced zero creates a small kink in E at σ = ½ ± δ, and the measured size matches the theoretical 2π/L to four digits. This is Littlewood's lemma at work: E″ is a measure living on the real parts of the zeros.
+2. **The minimum stays at σ = ½.** E is symmetric by construction (functional equation), and adding a symmetric quadruple keeps it symmetric and V-shaped. So "the minimum is at ½" is true for this E whether or not RH holds, and cannot distinguish the two cases.
+3. **No infinite action.** An off-line zero produced a finite, tiny change in E. The proposal's claim that such a zero is "outside the domain of the theory" is not supported by this definition.
+4. **Detection depends on the window.** The γ₀ = 400 zero is invisible because it lies outside [30, 271]. Conclusions from E apply only to the heights sampled, and nothing is learned about heights beyond the data.
+5. **What E *does* encode:** RH ⇔ in the T→∞ limit, E″ has no mass away from ½. That is a true equivalent of RH, but proving it requires information about zero locations that E itself takes as input.
+
+## Limitations
+
+- The fake zero is inserted by hand. This tests what E would look like *if* such a zero existed, not whether one does.
+- Finite window and finite N: on a finite window E has slight negative curvature (min E″ ≈ −0.01) from the edges. This corrects the earlier note in `README_rh_energy.md` that implied convexity was automatic via Hardy's theorem.
+- Only one energy functional was tested. A different definition could behave differently, but the proposal never specifies one.
+- Adding rather than displacing a zero changes the zero count slightly; the normalisation constant shifts E but not its shape.
+
+## Files
+
+`rh_fake_zero_test.py`, `rh_fake_zero.png`, `README_rh_energy.md` (previous experiment).
+
+## Script
+
+```python
+"""Insert a hypothetical off-line zero quadruple into the zero set and see what E(sigma) does.
+
+E(sigma) = mean_{t in [T0,T1]} log|xi(sigma+it)/xi(0)|, evaluated EXACTLY (closed form)
+from a list of zeros rho = 1/2 + beta + i*gamma, so there is no sampling noise.
+"""
+import os, sys
+import numpy as np
+
+T0, N = 30.0, 300
+CACHE = f"zeros_{N}.npy"
+
+def load_zeros():
+    if os.path.exists(CACHE):
+        return np.load(CACHE)
+    import mpmath as mp                                    # slow first run (~50 s)
+    g = np.array([float(mp.zetazero(k).imag) for k in range(1, N + 1)])
+    np.save(CACHE, g); return g
+
+def F(a, y):
+    """Antiderivative in a of 0.5*log(y^2 + a^2)."""
+    r2 = y * y + a * a
+    lg = np.log(np.where(r2 > 0, r2, 1.0))
+    return 0.5 * (a * lg - 2 * a + 2 * np.abs(y) * np.arctan2(a, np.abs(y)))
+
+def E(sig, beta, gam, T1):
+    y = (sig - 0.5)[:, None] - beta[None, :]
+    L = T1 - T0
+    mean_log = ((F(T1 - gam, y) - F(T0 - gam, y)) / L).sum(axis=1)
+    return mean_log - np.log(np.hypot(0.5 + beta, gam)).sum()
+
+def dE(sig, beta, gam, T1):
+    """Exact E'(sigma)."""
+    y = (sig - 0.5)[:, None] - beta[None, :]
+    L = T1 - T0
+    at = lambda a: np.sign(y) * np.arctan2(a, np.abs(y))
+    return ((at(T1 - gam) - at(T0 - gam)) / L).sum(axis=1)
+
+def zero_set(gam, fake=None):
+    """Real zeros (+-gamma, beta=0) plus an optional fake quadruple (delta, gamma0)."""
+    beta = np.zeros(2 * len(gam)); g = np.concatenate([gam, -gam])
+    if fake:
+        d, g0 = fake
+        beta = np.concatenate([beta, [d, -d, d, -d]])
+        g = np.concatenate([g, [g0, g0, -g0, -g0]])
+    return beta, g
+
+def analyse(gam, T1, fake, h=0.005):
+    sig = np.round(np.arange(0, 1 + h / 2, h), 10)
+    b, g = zero_set(gam, fake)
+    e = E(sig, b, g, T1)
+    epp = np.gradient(np.gradient(e, h), h)                # second difference
+    far = np.abs(sig - 0.5) > 0.012
+    thr = 20 * np.median(np.abs(epp[far]))                 # blind detection threshold
+    peaks = [s for i, s in enumerate(sig[1:-1], 1)
+             if far[i] and epp[i] > thr and epp[i] >= epp[i-1] and epp[i] >= epp[i+1]]
+    # calibrated jump in E' across each true cusp (difference vs. no-fake baseline)
+    jumps = []
+    if fake:
+        b0, g0_ = zero_set(gam)
+        for c in (0.5 + fake[0], 0.5 - fake[0]):
+            w = 2 * h
+            s2 = np.array([c - w, c + w])
+            jumps.append(float(np.diff(dE(s2, b, g, T1) - dE(s2, b0, g0_, T1))[0]))
+    return dict(sig=sig, E=e, Epp=epp, peaks=peaks, jumps=jumps,
+                argmin=float(sig[e.argmin()]), minEpp=float(epp[3:-3].min()),
+                symerr=float(np.abs(e - e[::-1]).max()))
+
+if __name__ == "__main__":
+    gam = load_zeros(); T1 = 0.5 * gam[-1]; L = T1 - T0
+    print(f"window [{T0}, {T1:.1f}], L={L:.1f}, predicted mass per cusp 2*pi/L = {2*np.pi/L:.4f}")
+    base = analyse(gam, T1, None)
+    print(f"baseline: argmin={base['argmin']}, off-axis peaks={base['peaks']}, min E''={base['minEpp']:.3f}")
+    print("\nTable 1: delta sweep, gamma0=150.3")
+    for d in (0.02, 0.05, 0.10, 0.20, 0.30, 0.40):
+        r = analyse(gam, T1, (d, 150.3))
+        print(f"delta={d:.2f} argmin={r['argmin']:.3f} blind peaks={[round(p,3) for p in r['peaks']]} "
+              f"jumps={[round(j,4) for j in r['jumps']]} minE''={r['minEpp']:.2f}")
+    print("\nTable 2: gamma0 sweep, delta=0.20")
+    for g0 in (40.0, 100.0, 150.3, 250.0, 400.0):
+        r = analyse(gam, T1, (0.20, g0))
+        print(f"gamma0={g0:6.1f} blind peaks={[round(p,3) for p in r['peaks']]} "
+              f"jumps={[round(j,4) for j in r['jumps']]}")
+    # finite 'action cost' of the fake zeros
+    sig = base['sig']; r = analyse(gam, T1, (0.20, 150.3))
+    dE_ = r['E'] - base['E']
+    print(f"\nDelta E (fake - base): at 1/2 = {dE_[100]:.3f}, min={dE_.min():.3f}, max={dE_.max():.3f}, all finite={np.isfinite(r['E']).all()}")
+    try:
+        import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
+        f, ax = plt.subplots(1, 2, figsize=(11, 3.8))
+        m = (np.abs(sig - 0.5) > 0.012)
+        ax[0].plot(sig[m], base['Epp'][m], label="no fake zero", lw=1)
+        ax[0].plot(sig[m], r['Epp'][m], label="fake zeros at 1/2±0.2", lw=1)
+        ax[0].set(xlabel="sigma", title="E''(sigma) off the axis", ylim=(-1, 7)); ax[0].legend()
+        ax[1].plot(sig, base['E'], label="baseline"); ax[1].plot(sig, r['E'], "--", label="with fake zeros")
+        ax[1].set(xlabel="sigma", title="E(sigma): minimum stays at 1/2"); ax[1].legend()
+        plt.tight_layout(); plt.savefig("rh_fake_zero.png", dpi=130)
+    except ImportError:
+        pass
+```
