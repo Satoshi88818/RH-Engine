@@ -1,0 +1,40 @@
+"""Compare my Riemann-Siegel zero lists with Odlyzko's tables (zeros6: first 2,001,052 zeros; zeros3: zeros 1e12+1 .. 1e12+1e4)."""
+import json, numpy as np
+LD = np.longdouble
+out = {}
+def match(t, mine):
+    idx = np.clip(np.searchsorted(mine, t), 1, len(mine) - 1)
+    return np.where(abs(t - mine[idx - 1]) < abs(t - mine[idx]), idx - 1, idx)
+# ---- zeros6 vs pos_low
+tab = np.loadtxt('odlyzko/zeros6'); mine = np.load('pos_low.npy'); mf = mine.astype(float)
+t = tab[(tab > 1000.0) & (tab < 1132492.0)]; near = match(t, mf); d = mf[near] - t
+out['zeros6'] = dict(n_table=len(t), n_mine=len(mf), unique=bool(len(set(near.tolist())) == len(t)),
+                     unmatched_mine=[float(mf[i]) for i in sorted(set(range(len(mf))) - set(near.tolist()))],
+                     bands=[dict(lo=lo, hi=hi, n=int(((t >= lo) & (t < hi)).sum()), max=float(abs(d[(t >= lo) & (t < hi)]).max()),
+                                 rms=float(np.sqrt((d[(t >= lo) & (t < hi)]**2).mean())), median=float(np.median(abs(d[(t >= lo) & (t < hi)]))))
+                            for lo, hi in [(1e3, 1e4), (1e4, 1e5), (1e5, 1e6), (1e6, 1.2e6)]])
+gt = np.diff(t); order = np.argsort(gt)[:25]; rows = []
+for r, i in enumerate(order, 1):
+    gm = float(mine[near[i + 1]] - mine[near[i]]); rows.append(dict(rank=r, pos=float(t[i]), gap_table=float(gt[i]), gap_mine=gm))
+gm_all = np.diff(mine).astype(float)
+out['zeros6']['closest25'] = rows
+out['zeros6']['max_gap_diff_25'] = float(max(abs(r['gap_mine'] - r['gap_table']) for r in rows))
+out['zeros6']['same_25_pairs'] = bool(set(np.argsort(gm_all)[:25].tolist()) == set(near[order].tolist()))
+# ---- zeros3 vs pos_zeros3
+tab3 = np.loadtxt('odlyzko/zeros3', skiprows=7); m3 = np.load('pos_zeros3.npy'); off = (m3 - LD(267653395647)).astype(float)
+near3 = match(tab3, off); d3 = off[near3] - tab3
+g3 = np.diff(tab3); o3 = np.argsort(g3)[:12]; rows3 = []
+for r, i in enumerate(o3, 1):
+    gm = float(m3[near3[i + 1]] - m3[near3[i]]); rows3.append(dict(rank=r, offset=float(tab3[i]), gap_table=float(g3[i]), gap_mine=gm))
+gm3 = np.diff(m3).astype(float)
+out['zeros3'] = dict(n_table=len(tab3), n_mine=len(m3), unique=bool(len(set(near3.tolist())) == len(tab3)), max=float(abs(d3).max()),
+                     rms=float(np.sqrt((d3**2).mean())), median=float(np.median(abs(d3))), closest12=rows3,
+                     max_gap_diff_12=float(max(abs(r['gap_mine'] - r['gap_table']) for r in rows3)),
+                     same_12_pairs=bool(set(np.argsort(gm3)[:12].tolist()) == set(near3[o3].tolist())))
+json.dump(out, open('compare_odlyzko.json', 'w'), indent=1)
+z = out['zeros6']; print("zeros6:", z['n_table'], z['n_mine'], z['unique'], z['unmatched_mine'])
+for b in z['bands']: print("  ", b)
+print("  25 closest: max gap diff", z['max_gap_diff_25'], "same set:", z['same_25_pairs'])
+z = out['zeros3']; print("zeros3:", z['n_table'], z['n_mine'], z['unique'], "max|d|", z['max'], "rms", z['rms'], "median", z['median'])
+print("  12 closest: max gap diff", z['max_gap_diff_12'], "same set:", z['same_12_pairs'])
+for r in z['closest12']: print("   ", r)
