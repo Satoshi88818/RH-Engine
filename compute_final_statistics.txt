@@ -1,0 +1,52 @@
+cd /home/squire && cat > final_stats.py <<'EOF'
+import json, numpy as np
+from scipy.optimize import brentq
+import window_test as W
+LD = np.longdouble
+F = W.F
+def datasets():
+    tab = np.loadtxt('odlyzko/zeros6')
+    for lo, hi in [(1e3, 1e4), (1e4, 1e5), (1e5, 1e6), (1e6, 1.2e6)]:
+        yield f"zeros6 [{lo:.0e},{hi:.0e}) (published)", tab[(tab >= lo) & (tab < hi)]
+    yield "zeros3 ~2.7e11 (published)", np.array(np.loadtxt('odlyzko/zeros3', skiprows=7), dtype=LD) + LD(267653395647)
+    for n in ("1e7", "1e8", "1e9", "1e10", "1e11"): yield f"mine {n}", np.load(f"pos_{n}.npy")
+rows = []
+for name, pos in datasets():
+    nu, gaps, L = W.norm_gaps(pos); N = len(nu)
+    numin = nu.min(); nu_med = brentq(lambda x: N * F(x) - np.log(2), 1e-9, 0.6)
+    i = int(np.argmin(gaps)); tpos = float(0.5 * (pos[i] + pos[i + 1]))
+    r = dict(name=name, N=N, L=float(L.mean()), nu_min=float(numin), nu_med=float(nu_med), P=float(1 - np.exp(-N * F(numin))),
+             gap_min=float(gaps.min()), at=tpos, tau_obs=float(gaps.min()**2 / 2), tau_pred=float(2 * np.pi**2 / L.mean()**2 * nu_med**2),
+             small={str(q): [int((nu < q).sum()), float(N * F(q))] for q in (0.05, 0.1, 0.2)})
+    rows.append(r)
+    print(f"{name:32s} N={N:8d} L={r['L']:5.2f} nu_min={numin:.4f} (GUE med {nu_med:.4f}, P={r['P']:.2f}) gap_min={gaps.min():.5f} at {tpos:.6g} tau_obs={r['tau_obs']:.2e} tau_pred={r['tau_pred']:.2e} | "
+          + " ".join(f"nu<{q}: {v[0]}/{v[1]:.0f}" for q, v in r['small'].items()))
+# pooled coverage and exponent
+wt = json.load(open('window_test.json'))
+tot = {"0.05": [0, 0.0], "0.01": [0, 0.0]}; slopes = []
+for d in wt:
+    for w in d['windows']:
+        for q in tot: tot[q][0] += w['m']; tot[q][1] += w['m'] * w['coverage'][q]
+    if len(d['windows']) >= 3:
+        x = np.log([w['N0'] for w in d['windows']]); y = np.log([w['median_Y'] for w in d['windows']]) - x / 3 * 0 
+        # median nu_min = Y * N0^(-1/3)  ->  log median nu_min = log Y - (1/3) log N0
+        b = np.polyfit(x, y - x / 3, 1)[0]; slopes.append((d['name'], float(b)))
+cov = {q: (v[1] / v[0], v[0]) for q, v in tot.items()}
+print("pooled coverage:", cov, " expected 0.95 / 0.99")
+print("slopes d log(median nu_min)/d log N0 (theory -1/3):")
+for s in slopes: print("  ", s)
+# extrapolated window times for all zeros in [x,2x]
+ext = []
+for X in (1e9, 1e11, 1e13, 1e15, 1e18, 1e20, 1e22):
+    L = np.log(X / (2 * np.pi)); N = X / (2 * np.pi) * (L + 2 * np.log(2) - 1)
+    d = dict(x=X, N=N, L=L)
+    for q in (0.05, 0.5):
+        nq = brentq(lambda y: N * F(y) + np.log(1 - q), 1e-14, 0.6); d[f"tau_q{q}"] = float(2 * np.pi**2 / L**2 * nq**2)
+    ext.append(d); print(f"x={X:.0e} N={N:.2e} tau_5%={d['tau_q0.05']:.2e} tau_50%={d['tau_q0.5']:.2e}")
+json.dump(dict(rows=rows, coverage={k: list(v) for k, v in cov.items()}, slopes=slopes, extrapolation=ext), open('final_stats.json', 'w'), indent=1)
+EOF
+python3 final_stats.py
+
+Response:
+
+{"returncode":0,"stdout":"zeros6 [1e+03,1e+04) (published) N=    9492 L= 6.68 nu_min=0.0421 (GUE med 0.0406, P=0.54) gap_min=0.03770 at 7005.08 tau_obs=7.11e-04 tau_pred=7.27e-04 | nu<0.05: 2/1 nu<0.1: 5/10 nu<0.2: 42/81\nzeros6 [1e+04,1e+05) (published) N=  127926 L= 8.97 nu_min=0.0219 (GUE med 0.0170, P=0.77) gap_min=0.01470 at 71732.9 tau_obs=1.08e-04 tau_pred=7.12e-05 | nu<0.05: 13/18 nu<0.1: 96/139 nu<0.2: 796/1087\nzeros6 [1e+05,1e+06) (published) N= 1609076 L=11.26 nu_min=0.0054 (GUE med 0.0073, P=0.25) gap_min=0.00296 at 663319 tau_obs=4.38e-06 tau_pred=8.34e-06 | nu<0.05: 205/220 nu<0.1: 1490/1751 nu<0.2: 11580/13671\nzeros6 [1e+06,1e+06) (published) N=  253905 L=12.04 nu_min=0.0130 (GUE med 0.0136, P=0.46) gap_min=0.00679 at 1.09426e+06 tau_obs=2.30e-05 tau_pred=2.50e-05 | nu<0.05: 35/35 nu<0.1: 233/276 nu<0.2: 1861/2157\nzeros3 ~2.7e11 (published)       N=    9999 L=24.48 nu_min=0.0216 (GUE med 0.0399, P=0.11) gap_min=0.00556 at 2.67653e+11 tau_obs=1.54e-05 tau_pred=5.23e-05 | nu<0.05: 2/1 nu<0.1: 6/11 nu<0.2: 83/85\nmine 1e7                         N=  500049 L=14.29 nu_min=0.0146 (GUE med 0.0108, P=0.82) gap_min=0.00640 at 1.00753e+07 tau_obs=2.05e-05 tau_pred=1.13e-05 | nu<0.05: 64/68 nu<0.1: 515/544 nu<0.2: 3874/4248\nmine 1e8                         N=  500030 L=16.58 nu_min=0.0097 (GUE med 0.0108, P=0.39) gap_min=0.00366 at 1.00025e+08 tau_obs=6.69e-06 tau_pred=8.39e-06 | nu<0.05: 60/68 nu<0.1: 481/544 nu<0.2: 3846/4248\nmine 1e9                         N=  500001 L=18.89 nu_min=0.0115 (GUE med 0.0108, P=0.56) gap_min=0.00381 at 1.00004e+09 tau_obs=7.26e-06 tau_pred=6.47e-06 | nu<0.05: 62/68 nu<0.1: 499/544 nu<0.2: 4072/4248\nmine 1e10                        N=  300122 L=21.19 nu_min=0.0098 (GUE med 0.0128, P=0.27) gap_min=0.00292 at 1e+10 tau_obs=4.26e-06 tau_pred=7.22e-06 | nu<0.05: 32/41 nu<0.1: 312/327 nu<0.2: 2507/2550\nmine 1e11                        N=  150105 L=23.49 nu_min=0.0199 (GUE med 0.0161, P=0.73) gap_min=0.00533 at 1e+11 tau_obs=1.42e-05 tau_pred=9.33e-06 | nu<0.05: 22/21 nu<0.1: 141/163 nu<0.2: 1174/1275\npooled coverage: {'0.05': (0.9554962628491286, 58467), '0.01': (0.9909350573827971, 58467)}  expected 0.95 / 0.99\nslopes d log(median nu_min)/d log N0 (theory -1/3):\n   ('Odlyzko zeros6 [1e+04,1e+05)', -0.3046686608632919)\n   ('Odlyzko zeros6 [1e+05,1e+06)', -0.34823547139733824)\n   ('Odlyzko zeros6 [1e+06,1e+06)', -0.35677730613474984)\n   ('mine 1e7', -0.35704213181021294)\n   ('mine 1e8', -0.33865160514501647)\n   ('mine 1e9', -0.3204186034300381)\n   ('mine 1e10', -0.3291985948046936)\n   ('mine 1e11', -0.3224691310753421)\nx=1e+09 N=3.07e+09 tau_5%=3.40e-09 tau_50%=1.93e-08\nx=1e+11 N=3.80e+11 tau_5%=8.85e-11 tau_50%=5.02e-10\nx=1e+13 N=4.53e+13 tau_5%=2.55e-12 tau_50%=1.45e-11\nx=1e+15 N=5.27e+15 tau_5%=7.92e-14 tau_50%=4.49e-13\nx=1e+18 N=6.37e+18 tau_5%=4.76e-16 tau_50%=2.70e-15\nx=1e+20 N=7.10e+20 tau_5%=1.65e-17 tau_50%=9.35e-17\nx=1e+22 N=7.83e+22 tau_5%=5.87e-19 tau_50%=3.33e-18\n","stderr":""}
