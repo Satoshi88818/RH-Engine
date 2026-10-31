@@ -1,0 +1,158 @@
+# Sketch: a "no-collision" bound for the zeros of H_t at t = 0
+
+## Summary
+
+- **Rigorous piece:** a one-line *gap-lifetime lemma* bounds how long a pair of real zeros can be followed backward in time before colliding.
+- **Obstruction:** the lifetime shrinks with height like (spacing)², so no height-uniform gap bound can reach t = 0. If RH is true, Λ = 0 (Rodgers–Tao), and a uniform bound is heuristically *false*.
+- **What a workable bound looks like:** a height-dependent ("windowed") statement. Proving it needs arithmetic input, which is where the real difficulty sits.
+
+This is a sketch, not a proof, and nothing here proves RH.
+
+## 1. Setting and reformulation
+
+Use the Polymath15 normalisation from `README_phase_velocity_map.md`: zeros of H_t are z_k(t), with z = 2γ at t = 0, moving by
+
+> ż_k = 2 Σ_{j≠k} 1/(z_k − z_j).
+
+Facts used: RH ⇔ Λ ≤ 0; Λ ≥ 0 (Rodgers–Tao); once all zeros are real they stay real.
+
+A **collision** is a nonreal conjugate pair meeting on the axis at time t_c and splitting into two real zeros whose gap grows like r ≈ √(8(t − t_c)).
+
+**Reformulation.** RH ⇔ no collision occurs at any t > 0. (A collision at t_c > 0 means the pair was nonreal at all earlier times, including t = 0. Conversely, nonreal zeros at t = 0 must collide at some positive time, by the definition of Λ.)
+
+So a "no-collision bound" is a certificate that collisions cannot occur at t > 0.
+
+## 2. The gap-lifetime lemma (rigorous for finite real systems)
+
+For consecutive real zeros z_j < z_{j+1} with gap r = z_{j+1} − z_j:
+
+> ṙ = 4/r + τ r, where τ = −2 Σ_{m≠j,j+1} 1/((z_{j+1} − z_m)(z_j − z_m)).
+
+For every m outside the pair, both factors in the denominator have the same sign, so **τ ≤ 0**. Therefore
+
+> **d(r²)/dt = 8 + 2τ r² ≤ 8**, and so r(t₁ − s)² ≥ r(t₁)² − 8s.
+
+**Lemma.** Going backward in time, a real consecutive pair stays apart for at least **s = r²/8**.
+
+**Corollary (sufficient condition).** If at some time t₁ all zeros are real and **every** gap satisfies r_j(t₁)² ≥ 8 t₁, then no collision occurs on [0, t₁], and all zeros are real at t = 0 (RH).
+
+*Caveat:* the proof is exact for finitely many real zeros. For the infinite system (genus-1 product, absolutely convergent paired sums) I'm assuming the same computation holds. This is standard but should be checked.
+
+## 3. Numerical check (first 300 zeros, ±, z = 2γ)
+
+`rh_nocollision_sketch.py` computes gaps, tidal coefficients and lifetimes, then integrates the finite system backward until the first collision.
+
+- τ ≤ 0 for all pairs (the sign claim holds numerically).
+- Lifetime lower bound r²/8, by height band (index of the positive zero):
+
+| zero index | min gap r (in z) | min r²/8 (lemma) | min local-model lifetime |
+|---|---|---|---|
+| 0–50 | 1.690 | 0.357 | 0.384 |
+| 50–100 | 1.432 | 0.256 | 0.282 |
+| 100–200 | 0.996 | 0.124 | 0.131 |
+| 200–299 | 0.836 | 0.0875 | 0.0916 |
+
+- Direct backward integration: first collision at s = 0.0916, in the pair at |z| ≈ 1080.
+- The lemma's bound for that pair is 0.0875 ≤ 0.0916, so it holds, and it is tight to about 5%.
+
+**Caveat:** that pair sits at the truncation edge (the top of the 300 zeros), so the exact collision time is partly an edge artifact. The lemma check is still valid.
+
+**Trend:** the available lifetime shrinks with height, roughly (spacing)².
+
+## 4. Refinement: a local model
+
+Treat τ as constant. Then d(r²)/dt = 8 − 2|τ| r², with equilibrium r*² = 4/|τ| (about the mean spacing squared).
+
+- If r² ≥ 4/|τ|, the pair **never collides backward** in this model.
+- If r² < 4/|τ|, backward collision time is s = ln(r*²/(r*² − r²)) / (2|τ|) ≈ r²/8 for small gaps.
+
+In the data, about half the pairs (27/50, 27/50, 54/100, 49/99 per band) are above the equilibrium gap. The other half collide backward in the model. Collisions of *close* pairs are exactly what limits how far back the flow stays real.
+
+## 5. Why a uniform bound at t = 0 cannot work
+
+Heights at x ≈ 10¹² have spacing about 0.5 in z, so the natural lifetime scale there is about 0.03 or less, and it shrinks like 1/log²x. The corollary in §2 needs gaps² ≥ 8t₁ for **all** heights, which fails for any fixed t₁ > 0.
+
+The obstruction is real, not technical. Heuristically (two-body picture):
+
+- If RH holds then Λ = 0, so nonreal zeros exist for every t < 0.
+- Each such pair collides at some t_c ∈ (−ε, 0) for arbitrarily small ε, and leaves a real pair at t = 0 with gap ≈ √(8|t_c|).
+- So gaps at t = 0 must come arbitrarily close to zero, relative to what a uniform bound would allow.
+
+This matches the Lehmer-pair literature (close-zero pairs give lower bounds on Λ, now at the 10⁻¹¹ scale) and Rodgers–Tao's finding that RH, if true, is "barely true". This section is **heuristic**, not a theorem.
+
+## 6. What a workable bound could look like
+
+**Known architecture (Polymath15, Rodgers–Tao, Ki–Kim–Lee):**
+1. *Verified zone:* all zeros up to height X are real at t = 0 (computation).
+2. *Barrier:* for t ∈ [0, t₀], no zero crosses the boundary of a box (argument principle). This is where lifetime bounds like the lemma enter.
+3. *Analytic zone:* for x > X, show H_{t₀} has no nonreal zeros, using the A + B approximations.
+4. Conclusion: Λ ≤ t₀. For each fixed t > 0, only finitely many nonreal zeros exist (Ki–Kim–Lee, to my recollection).
+
+**Target statement (conjectural; I have not proved it):**
+
+> *(WNC)* There is a function t(x) → 0 such that for all x ≥ X₀, H_{t(x)} has only real zeros with real part in [x, 2x], with gaps there satisfying r² ≥ 8t(x) (plus a bound on tidal and far-field influence from nonreal zeros elsewhere). Then Λ ≤ 0.
+
+**Where it breaks:** step 3 at t = 0. The analytic approximations that control zeros for t₀ > 0 have errors that do not exclude off-line zeros at t = 0. A no-collision argument at height x needs control of the zeros there at a time t(x) ≪ spacing², and that control is arithmetic information equivalent in difficulty to RH.
+
+## 7. Concrete next questions
+
+1. Prove the lemma for the infinite system (Laguerre–Pólya class), including the far-field sums.
+2. Make the tidal term rigorous: bound |τ_j| in terms of the zero density ρ(x) ~ ¼π⁻¹ log(x/4π) (in z units).
+3. Quantify "barely true": how fast must the minimum normalised gap go to 0 along heights for Λ = 0?
+4. Test (WNC) numerically against known verified zeros to large height (e.g., the Odlyzko tables) with a candidate t(x) ∝ 1/log²x.
+
+## Limitations
+
+- The lemma is rigorous for finite real systems only; the infinite extension is assumed.
+- Numerics use 300 zeros; the first collision is at the truncation edge.
+- The local model assumes constant τ.
+- Section 5 is a heuristic, not a theorem.
+- Sign conventions follow ∂ₜH = −∂ᵤᵤH; check against Rodgers–Tao before citing formulas.
+
+## Script
+
+```python
+"""Gap-lifetime lemma for the zeros of H_t (z = 2*gamma), tested on the first 300 zeros (+-).
+Flow: dz_k/dt = 2*sum_{j!=k} 1/(z_k - z_j).  Gap r = z_{j+1}-z_j obeys
+    dr/dt = 4/r + tau*r,   tau = -2*sum_{m != j,j+1} 1/((z_{j+1}-z_m)(z_j-z_m)) <= 0  (real, ordered zeros)
+so d(r^2)/dt = 8 + 2*tau*r^2 <= 8:  backward lifetime >= r^2/8   (Lemma).
+"""
+import numpy as np
+from scipy.integrate import solve_ivp
+
+g = np.load("zeros_300.npy"); zp = 2 * g
+z = np.sort(np.concatenate([zp, -zp]))
+n = len(z)
+
+def gaps_and_tidal(z):
+    r = np.diff(z); tau = np.empty(n - 1)
+    for j in range(n - 1):
+        m = np.r_[0:j, j + 2:n]
+        tau[j] = -2 * np.sum(1 / ((z[j + 1] - z[m]) * (z[j] - z[m])))
+    return r, tau
+
+r, tau = gaps_and_tidal(z)
+pos = np.arange(n // 2, n - 1)                     # pairs at positive heights
+lem = r**2 / 8                                     # rigorous backward lifetime lower bound
+wstar = 4 / np.abs(tau)                            # equilibrium r^2 of the 2-body + constant tidal model
+loc = np.where(r**2 < wstar, np.log(wstar / np.maximum(wstar - r**2, 1e-300)) / (2 * np.abs(tau)), np.inf)
+
+print("Lemma check: tau <= 0 for all pairs:", bool((tau <= 1e-12).all()))
+print("band(j)   min gap r   min r^2/8   min local-model lifetime   #pairs r^2>=4/|tau| (never collide in local model)")
+for lo, hi in [(0, 50), (50, 100), (100, 200), (200, 299)]:
+    idx = pos[lo:hi]
+    print(f"{lo:3d}-{hi:3d}   {r[idx].min():8.3f}   {lem[idx].min():9.4f}   {loc[idx].min():12.4f}               {(r[idx]**2 >= wstar[idx]).sum()}/{len(idx)}")
+
+# Direct backward integration of the finite system until the first collision
+def rhs(t, y):
+    d = y[:, None] - y[None, :]; np.fill_diagonal(d, np.inf)
+    return 2 * (1 / d).sum(axis=1)
+ev = lambda t, y: np.diff(np.sort(y)).min() - 1e-3
+ev.terminal = True
+sol = solve_ivp(rhs, (0, -1.0), z.copy(), events=ev, rtol=1e-10, atol=1e-12)
+sc = -sol.t[-1]
+yy = np.sort(sol.y[:, -1]); jmin = np.diff(yy).argmin()
+print(f"\nFirst backward collision at s = {sc:.5f}  (pair index {jmin}, z ~ {yy[jmin]:.1f})")
+print(f"Lemma lower bound for that pair: r0^2/8 = {lem[jmin]:.5f}  -> bound holds: {sc >= lem[jmin] - 1e-4}")
+print(f"Global lemma bound min_j r_j^2/8 = {lem.min():.5f}")
+```
