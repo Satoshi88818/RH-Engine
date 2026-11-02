@@ -1,0 +1,145 @@
+# How primes and zeros are linked, and where the repulsion comes from
+
+## Summary
+
+1. **The link is exact and I measured it.** In the Fourier transform of the zeros, every prime power n produces a peak at u = log n with height Λ(n)/(2π√n) (times the window integral). The measured peaks match for all 267 prime powers n ≤ 1500: ratio 1.0000 near γ = 10⁹ and 1.0001 near 10¹¹, and also 1.0000 for **Odlyzko's published zeros** (1.86 million zeros, γ from 10⁵ to 1.13×10⁶), which are independent of my code.
+2. **The statistical repulsion has an arithmetic source for τ < 1.** The zeros' form factor K(τ) is the prime-power sum Σ Λ(n)²/n up to τ = 1 (it ramps up linearly), and then saturates at 1. The ramp, through the Fourier relation between the form factor and the pair correlation, is what makes the zeros repel like random-matrix eigenvalues (gap density ∝ s²).
+3. **The finite-height weakening of the repulsion is explained by primes, with no fitted parameters.** Bogomolny et al.'s correction (constants Λ and C computed from the primes, reproduced here to 5 digits) removes most of the discrepancy: for N_eff ≥ 3 the rms z-score of the close-pair counts drops from 5.1 (random-matrix prediction) to 1.0.
+4. **I also found the arithmetic behind that correction directly:** narrow lines in K(τ) at τ = 1 + ln q / ln(γ/2π) for squarefree q (q = 2, 3, 6, 10, …), whose positions match to within my bin width and whose weights, for the three cleanest lines (q = 2, 6, 10), are about 0.7–0.8 of the Hardy–Littlewood-based prediction (q = 3 is about 0.5).
+5. **What is not established.** The saturation K = 1 beyond τ = 1, which the strength of the repulsion depends on, is observed here and conjectured by Montgomery, but not derived from primes. The finite-height theory rests on the Hardy–Littlewood conjecture and one further conjecture (§5). So this explains how primes shape the zeros' statistics; it does not derive the repulsion from first principles, and it does not bear on RH.
+
+## 1. Two different things called "repulsion"
+
+- **The Coulomb law of the heat flow**, ż = 2 Σ 1/(z_k − z_j), is exact, but it describes how zeros move in the fictitious flow time t. It is not a force the zeros exert on each other at t = 0.
+- **Statistical repulsion at t = 0** is the observed fact that nearby zeros avoid each other: the density of spacings goes like s², as for eigenvalues of random unitary matrices. This is what this report examines.
+
+## 2. The first link: the explicit formula, measured
+
+For a smooth window w around height T₀, the explicit formula gives
+
+> S(u) = Σ_γ w(γ − T₀) e^{iγu} ≈ −(e^{−iT₀ log n}/2π) · Λ(n)/√n · ŵ(u − log n)
+
+near each u = log n. I computed S(log n) directly from the zero lists and compared it with Λ(n)/(2π√n) · ∫w. The ratio S/(−A) (after removing the known phase e^{iT₀ log n}):
+
+| zero set | zeros | prime powers tested | mean ratio | std | rms of S at non-prime-powers vs typical prime peak |
+|---|---|---|---|---|---|
+| mine, γ ≈ 10⁹ | 500,002 | 267 | 1.00003 | 0.00001 | 0.0382 vs 3.23e+03 |
+| mine, γ ≈ 10¹¹ | 150,106 | 267 | 1.00006 | 0.00008 | 0.47 vs 781 |
+| **Odlyzko, published** | 1,858,185 | 267 | 1.00000 | 0.00000 | 0.000662 vs 2e+04 |
+
+So the zeros "know" the primes to about five digits, including the sign and phase, and nothing appears at non-prime-powers. (My zeros are located by the Riemann–Siegel sum, so I repeated the test on the independent published table.)
+
+## 3. The ramp: K(τ) from primes, and saturation
+
+Define K(τ) = ⟨|S(u)|²⟩ / Σw², with u = τ ln(γ/2π) (so τ = 1 is one mean spacing). Averaging the explicit formula over a band of u gives
+
+> K_prime(τ) = (1/(L·B)) Σ_{log n in band} Λ(n)² / n,  with L = ln(γ/2π), B = band width,
+
+which is τ asymptotically, since Σ_{n ≤ x} Λ(n)²/n ≈ ½ ln²x. I computed this from all primes up to 2×10⁸ (11.1 million), and K(τ) from the zeros by a non-uniform FFT, in bins of width 0.02.
+
+- **For τ < 1**, K from the zeros equals the prime-power sum within the statistical error at every height (figure, upper right). Over 0.3 < τ < 0.95 the mean difference is below 0.002 and the rms difference is 0.005–0.010 (statistical error per bin 0.02–0.07), with no bin deviating by more than 2σ at heights 10⁷ to 10¹¹. At low τ the two agree to three digits because each band then contains only a few individual peaks; this is Parseval, not luck.
+- **For τ > 1** the prime sum would keep growing like τ. The zeros' K does not: its mean over 1.3 < τ < 1.9 is 1.003±0.003, 0.997±0.003, 1.001±0.003, 0.999±0.004, 0.997±0.005 at heights 10⁷, 10⁸, 10⁹, 10¹⁰, 10¹¹, i.e. saturated at 1. **I observe this saturation; I cannot derive it from the primes.** It is Montgomery's conjecture F(α) = 1 for α ≥ 1.
+
+## 4. From the ramp to the repulsion
+
+The Fourier relation between K(τ) and the pair correlation R₂(s) gives, for small s,
+
+> R₂(s) ≈ c₂ s², c₂ = 4π² ∫₀^∞ τ² (1 − K(τ)) dτ.
+
+For K = min(τ, 1) this is π²/3, the random-matrix value: a ramp up to 1 and flat beyond is exactly what produces the s² repulsion. Using my **measured** K(τ) (with K = 1 beyond τ = 2) to predict the repulsion strength relative to random matrices, R_K = 12 ∫ τ²(1 − K) dτ:
+
+| height | R_K from measured K | observed small-gap ratio (x = 0.2) | BBLM prediction |
+|---|---|---|---|
+| 10⁷ | 0.878 | 0.911 | 0.895 |
+| 10⁸ | 0.945 | 0.905 | 0.924 |
+| 10⁹ | 0.927 | 0.958 | 0.942 |
+| 10¹⁰ | 1.013 | 0.983 | 0.955 |
+| 10¹¹ | 0.907 | 0.920 | 0.964 |
+
+The two columns agree within the noise (about ±0.05 for R_K, ±0.02–0.04 for the ratios); their means are 0.934 and 0.935. **If instead only the diagonal prime sum is used, with K = 1 for τ ≥ 1, the predicted ratio is 1.01, 1.01, 1.01, 1.08, 1.21: no deficit at all.** So the weakening of the repulsion at finite height does not come from the ramp. It comes from structure near and above τ = 1, which is the subject of §6 and §7.
+
+## 5. The second link: finite-height corrections, tested without free parameters
+
+Bogomolny, Bohigas, Leboeuf and Monastra (2006) derived, from the Bogomolny–Keating two-point formula (which uses the Hardy–Littlewood prime-pair conjecture), that at height E the zeros behave like a CUE matrix of effective size N_eff = ln(E/2π)/√(12Λ), with the spacing variable rescaled by α = 1 + C/ln(E/2π), where
+
+> Λ = γ₀² + 2γ₁ + Σ_p ln²p/(p−1)², C = Σ_p ln³p/(p−1)² / Λ.
+
+I computed these from the primes (to 2×10⁸, with a tail estimate): **Λ = 1.57315** (paper: 1.57314…) and **C = 1.4721** (paper: 1.4720). I then computed the predicted nearest-neighbour CDF F(x) = F₀(x) + G₁(αx) / (α N_eff²) numerically (Fredholm determinants for the sine kernel and for CUE_N, N = 60 and 120 extrapolated) and compared the number of gaps with normalised size ν below x with the random-matrix prediction and with this one, using each gap's own height.
+
+| dataset | zeros | ⟨ln γ/2π⟩ | N_eff | α | observed ν < 0.3 | random-matrix expected | BBLM expected | z (RM) | z (BBLM) | z (RM), x=0.5 | z (BBLM), x=0.5 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| zeros6 [1e+03,1e+04 | 9,492 | 6.7 | 1.54 | 1.220 | 157 | 262 | 122 | -6.5 | +3.2 | -6.8 | +6.5 |
+| zeros6 [1e+04,1e+05 | 127,926 | 9.0 | 2.06 | 1.164 | 2,762 | 3,530 | 2,570 | -12.9 | +3.8 | -16.3 | +8.1 |
+| zeros6 [1e+05,1e+06 | 1,609,076 | 11.3 | 2.59 | 1.131 | 38,390 | 44,403 | 37,124 | -28.5 | +6.6 | -40.9 | +11.7 |
+| zeros6 [1e+06,1.1e+06 | 253,905 | 12.0 | 2.77 | 1.122 | 6,142 | 7,007 | 6,023 | -10.3 | +1.5 | -13.6 | +4.4 |
+| zeros3 (2.7e11 | 9,999 | 24.5 | 5.63 | 1.060 | 262 | 276 | 267 | -0.8 | -0.3 | -0.5 | +0.3 |
+| zeros4 (1.4e20 | 9,999 | 44.6 | 10.26 | 1.033 | 257 | 276 | 273 | -1.1 | -1.0 | +1.3 | +1.5 |
+| zeros5 (1.4e21 | 9,999 | 46.8 | 10.78 | 1.031 | 266 | 276 | 274 | -0.6 | -0.5 | -0.2 | +0.0 |
+| mine 1e7 | 500,049 | 14.3 | 3.29 | 1.103 | 12,590 | 13,799 | 12,460 | -10.3 | +1.2 | -15.5 | +2.1 |
+| mine 1e8 | 500,030 | 16.6 | 3.82 | 1.089 | 12,947 | 13,799 | 12,824 | -7.2 | +1.1 | -10.9 | +2.1 |
+| mine 1e9 | 500,001 | 18.9 | 4.35 | 1.078 | 13,025 | 13,798 | 13,058 | -6.6 | -0.3 | -8.9 | +1.0 |
+| mine 1e10 | 300,122 | 21.2 | 4.88 | 1.069 | 7,993 | 8,282 | 7,934 | -3.2 | +0.7 | -5.9 | +0.1 |
+| mine 1e11 | 150,105 | 23.5 | 5.41 | 1.063 | 3,967 | 4,142 | 4,002 | -2.7 | -0.6 | -3.7 | -0.2 |
+
+- For **N_eff ≥ 3** (γ ≥ 10⁷, and the three published high sets) the rms z-score over x = 0.1, 0.2, 0.3, 0.5 falls from **5.1 (random matrix) to 1.0 (BBLM)**, with no fitted parameter.
+- For **N_eff < 3** (the published zeros below 1.13×10⁶) the correction takes the z-scores from 15.5 to 4.7: much better, but visibly over-corrected at larger x (up to +11.7 at x = 0.5). This is expected, because the expansion is in 1/N_eff² and N_eff is only 1.5–2.8 there.
+- At γ ≈ 10²⁰ and 10²¹ both predictions are within noise (the correction is about 1%).
+- z-scores treat the counts as Poisson; neighbouring gaps are correlated, so the z-scores are somewhat optimistic.
+
+## 6. The arithmetic behind the correction: lines at τ = 1 + ln q / L
+
+In the Bogomolny–Keating formula the off-diagonal part is (1/4π²) |ζ(1+iε)|² e^{i2πρε} ∏_p [1 − (1−p^{iε})²/(p−1)²] + c.c. Expanding the product in p^{iε} turns it into a sum of exponentials e^{iε ln r} over rationals r, each of which becomes a **narrow line in K(τ) at τ = 1 + ln r / L with weight g(r)/L²**. I computed g(r) from the Euler product (e.g. g(2) = 2.0, g(3) = 0.75, g(6) = 1.5, g(10) = 0.625) and looked for the lines in the zeros.
+
+- **Positions match.** The strongest excesses sit exactly at q = 2, 6, 3, 10 (figure, lower left; for γ ≈ 10⁹ the strongest bins are centred at τ = 1.038, 1.094, 1.058, 1.122, and the predicted positions 1 + ln q / L are 1.0367, 1.0949, 1.0582, 1.1219, all within the 0.004 bin width).
+- **Weights scale like 1/L².** The weight times L² (squarefree q, integrated over ±0.06 in u):
+
+| height | ln(γ/2π) | q = 2 | q = 6 | q = 10 | q = 3 |
+|---|---|---|---|---|---|
+| 1e7 | 14.3 | 1.63 | 1.16 | 0.38 | 0.35 |
+| 1e8 | 16.6 | 1.64 | 1.06 | 0.44 | 0.37 |
+| 1e9 | 18.9 | 1.38 | 1.08 | 0.42 | 0.45 |
+| 1e10 | 21.2 | 1.59 | 1.26 | 0.45 | 0.28 |
+| 1e11 | 23.5 | 1.36 | 1.21 | 0.44 | 0.36 |
+| **mean** | | **1.52** | **1.15** | **0.43** | **0.36** |
+| **predicted g(q)** | | **2.00** | **1.50** | **0.63** | **0.75** |
+
+So the measured line weights are about 0.76 (q = 2), 0.77 (q = 6), 0.69 (q = 10) and 0.48 (q = 3) of the prediction. A check with different stretch lengths and baselines moved the q = 2 value between 1.2 and 1.8, so my estimator has roughly ±20% scatter. **I could not tell whether the remaining shortfall is estimator bias or a genuine finite-L correction.** The published set below 1.13×10⁶ is not used here: its heights span a decade, which smears the lines.
+
+- The sum of weights of these lines is not the same as the single-spike weight Λ/L² that BBLM use: their first-order treatment replaces all the lines by one effective peak at τ = α (the centroid of the lines), which is why N_eff and α summarise the effect.
+
+## 7. Status of the "mechanism"
+
+| step | status |
+|---|---|
+| zeros ↔ primes (explicit formula) | exact; verified numerically (§2) |
+| K(τ) = τ for τ < 1 from Σ Λ(n)²/n | Montgomery's theorem under RH (restricted test functions); verified numerically (§3) |
+| K = 1 for τ > 1 | observed (§3); conjectural (Montgomery) |
+| ramp ⇒ s² repulsion | exact Fourier relation (§4) |
+| finite-height weakening | derived from the Hardy–Littlewood conjecture plus a "kernel-change" conjecture; **passes a parameter-free test** (§5); line structure observed (§6) |
+
+So the repulsion is, in a precise sense, the Fourier dual of the way the primes' contributions to the zeros grow with frequency: linearly up to one mean spacing, and then not at all. Why they stop growing at τ = 1 is the open part.
+
+## 8. Limitations
+
+- Floating-point numerics; zero lists from my own code and from a GitHub mirror of Odlyzko's tables (sanitised, numbers unchanged per its author).
+- The finite-height theory is conjectural, and N_eff < 3 is outside its reliable range.
+- The R_K check has noise of about ±0.05; it supports consistency, not precision.
+- Line weights are only roughly measured (25–30% below the prediction for q = 2, 6, 10 and about half for q = 3, with about ±20% scatter in my estimator).
+- Nothing here bears on whether any zero is off the critical line.
+
+## 9. Next steps
+
+- Understand the 25% line-weight shortfall by simulating an ensemble with the BK two-point function, and repeat with higher-order BBLM terms.
+- Test the three-point and higher correlations, which the same prime-pair formula predicts.
+- Push K(τ) above τ = 1 with independent zero samples at many heights to resolve the lines individually.
+
+## Files and reproduce
+
+Scripts: `bblm_test.py`, `bblm_compare.py` (finite-height test), `prime_spectrum.py`, `spike2.py`, `lines.py`, `line_stab.py`, `predict_lines.py` (primes and lines), `build_primes_report.py`. Results: `bblm_results.json`, `bblm_tables.npz`, `prime_spectrum_*.json`, `lines.json`, `spike2.json`, `rh_primes_repulsion.png`. They need the position files from `run_all.sh` (see `README_t_of_x_test.md`) and `odlyzko/zeros{3,4,5,6}`. Primes up to 2×10⁸ come from a numpy sieve (`primes_2e8.npy`).
+
+```bash
+pip install finufft mpmath numpy scipy matplotlib
+python bblm_test.py && python bblm_compare.py
+python prime_spectrum.py 1e9 5e8 1500          # peaks + K(tau)
+python spike2.py 1e9 && python lines.py 1e9 && python predict_lines.py
+```
