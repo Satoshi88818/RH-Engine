@@ -1,0 +1,37 @@
+cd /home/squire && python3 - <<'EOF'
+import numpy as np
+tab=np.loadtxt('odlyzko/zeros6'); np.save('pos_t6.npy', np.array(tab[(tab>1e5)&(tab<1.13e6)],dtype=np.longdouble)); print("t6 zeros",((tab>1e5)&(tab<1.13e6)).sum())
+s=open('prime_spectrum.py').read()
+# vectorised prime-power histogram
+old=s[s.index("    # prime-power histogram of Lambda(n)^2/n"):s.index("    B = dtau * L; Kp = sums / (L * B)")]
+new='''    # prime-power histogram of Lambda(n)^2/n (vectorised)
+    logn_edges = edges * L; lp_all = np.log(pr); sums = np.zeros(len(edges) - 1); kk = 1
+    while True:
+        m = pr <= nmax_p ** (1.0 / kk)
+        if not m.any(): break
+        lq = kk * lp_all[m]; wts = lp_all[m]**2 / (pr[m] ** kk)
+        sums += np.histogram(lq, bins=logn_edges, weights=wts)[0]; kk += 1
+'''
+s=s.replace(old,new)
+s=s.replace("    # (a) peaks at u = log n\n    lam = lam_table(nmax); res = []\n    for n in range(2, nmax + 1):",
+            "    # (a) peaks at u = log n\n    lam = lam_table(max(nmax, 2)); res = []\n    for n in range(2, nmax + 1):")
+s=s.replace("    res = np.array(res); isp = res[:, 1] > 0\n    pp = res[isp]; npp = res[~isp]\n    ratio = pp[:, 2] / (-pp[:, 4])                                  # expect +1 (S_abs = -A)\n    out['peaks'] = dict(",
+            "    res = np.array(res) if res else np.zeros((1, 5)); isp = res[:, 1] > 0\n    pp = res[isp] if isp.any() else res; npp = res[~isp] if (~isp).any() else res\n    ratio = pp[:, 2] / (-pp[:, 4] + 1e-300)                         # expect +1 (S_abs = -A)\n    out['peaks'] = dict(")
+# repulsion-strength prediction from K: R_K = 12 * int tau^2 (1-K) dtau, K=1 beyond tau_max
+s=s.replace("    return out\n\nif __name__","    Kc = np.interp(np.arange(0.0, tau_max, 0.001), np.concatenate([[0.0], tc]), np.concatenate([[0.0], Ke[:, 0]]))\n    tt = np.arange(0.0, tau_max, 0.001)\n    out['R_K'] = float(12 * np.sum(tt**2 * (1 - np.minimum(Kc, 1.0))) * 0.001)\n    return out\n\nif __name__")
+s=s.replace("tau_max=1.5, dtau=0.02","tau_max=2.0, dtau=0.02")
+s=s.replace("    p = r['peaks']; print(","    if nmax_arg == 0: print(f\"{r['name']}: N={r['N']} L={r['L']:.2f}  R_K = 12*int tau^2 (1-K) = {r['R_K']:.3f}\")\n    p = r['peaks']; print(")
+s=s.replace("    t0 = time.time(); r = run(","    nmax_arg = int(sys.argv[3]) if len(sys.argv) > 3 else 3000\n    t0 = time.time(); r = run(")
+open('prime_spectrum.py','w').write(s)
+EOF
+cat > run_spec.sh <<'EOF'
+#!/bin/bash
+cd /home/squire 
+for a in "1e7 0 0" "1e8 0 0" "1e9 0 1500" "1e10 0 0" "1e11 0 1500" "t6 0 1500"; do set -- $a; python3 prime_spectrum.py $1 $([ "$2" = 0 ] && echo 5e8 || echo $2) $3 >> spec.log 2>&1; done
+echo SPECDONE >> spec.log
+EOF
+chmod +x run_spec.sh; rm -f spec.log; (setsid nohup ./run_spec.sh > /dev/null 2>&1 < /dev/null &); sleep 100; cat spec.log | cut -c1-260 | head -30
+
+Response:
+
+{"returncode":0,"stdout":"t6 zeros 1858185\n/home/squire/prime_spectrum.py:33: RuntimeWarning: invalid value encountered in divide\n  ratio_min=float(ratio.min()), ratio_max=float(ratio.max()), imag_rms_over_A=float(np.sqrt(np.mean(pp[:, 3]**2 / pp[:, 4]**2))),\n/home/squire/prime_spectrum.py:35: RuntimeWarning: invalid value encountered in scalar divide\n  first=[(int(r[0]), float(r[2] / -r[4])) for r in pp[:10]])\n1e7: N=500050 L=14.29  R_K = 12*int tau^2 (1-K) = 1.173\n1e7: N=500050 W=2.2e+05 L=14.29  peaks: 0 prime powers, S/(-A) mean 0.0000 std 0.0000 range [0.000,0.000]; imag/A rms nan; non-prime-power |S| rms 0 vs typical A 0  (2s)\nfirst peaks S/(-A): [(0, nan)]\n  tau=0.11  K_emp=0.127±0.138  K_prime=0.127  tau=0.11\n  tau=0.17  K_emp=0.252±0.195  K_prime=0.252  tau=0.17\n  tau=0.23  K_emp=0.132±0.107  K_prime=0.132  tau=0.23\n  tau=0.29  K_emp=0.266±0.145  K_prime=0.266  tau=0.29\n  tau=0.35  K_emp=0.339±0.127  K_prime=0.339  tau=0.35\n  tau=0.41  K_emp=0.415±0.108  K_prime=0.415  tau=0.41\n  tau=0.47  K_emp=0.470±0.086  K_prime=0.470  tau=0.47\n  tau=0.53  K_emp=0.515±0.066  K_prime=0.515  tau=0.53\n  tau=0.59  K_emp=0.578±0.050  K_prime=0.578  tau=0.59\n  tau=0.65  K_emp=0.644±0.037  K_prime=0.644  tau=0.65\n  tau=0.71  K_emp=0.709±0.027  K_prime=0.710  tau=0.71\n  tau=0.77  K_emp=0.772±0.020  K_prime=0.767  tau=0.77\n  tau=0.83  K_emp=0.838±0.016  K_prime=0.830  tau=0.83\n  tau=0.89  K_emp=0.890±0.016  K_prime=0.890  tau=0.89\n  tau=0.95  K_emp=0.948±0.017  K_prime=0.951  tau=0.95\n  tau=1.01  K_emp=0.992±0.020  K_prime=1.010  tau=1.01\n  tau=1.07  K_emp=1.023±0.020  K_prime=1.071  tau=1.07\n  tau=1.13  K_emp=1.249±0.033  K_prime=1.130  tau=1.13\n  tau=1.19  K_emp=1.021±0.018  K_prime=1.190  tau=1.19\n  tau=1.25  K_emp=0.983±0.016  K_prime=1.250  tau=1.25\n  tau=1.31  K_emp=1.012±0.016  K_prime=1.310  tau=1.31\n  tau=1.37  K_emp=1.016±0.016  K_prime=—  tau=1.37\n  tau=1.43  K_emp=1.019±0.016  K_prime=—  tau=1.43\n","stderr":""}
