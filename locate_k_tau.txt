@@ -1,0 +1,26 @@
+cd /home/squire && cat > spike.py <<'EOF'
+import sys, json, numpy as np, finufft
+LAM, CC = 1.5731510713, 1.4721067971
+out = []
+for name in sys.argv[1:]:
+    pos = np.load(f'pos_{name}.npy'); T0 = pos[0]; d = (pos - T0).astype(float); W = d[-1]; L = float(np.log(float(pos.mean()) / (2 * np.pi)))
+    w = np.sin(np.pi * d / W)**2; M = float((w**2).sum()); Pn = 1.02 * W
+    kmax = int(1.6 * L * Pn / (2 * np.pi)) + 10; Nm = 1 << int(np.ceil(np.log2(2 * kmax)))
+    f = finufft.nufft1d1(2 * np.pi * d / Pn, w.astype(complex), Nm, eps=1e-10)
+    k = np.arange(-Nm // 2, Nm // 2); u = 2 * np.pi * k / Pn; P2 = np.abs(f)**2 / M; du = 2 * np.pi / Pn
+    tau = u / L; a = 1 + CC / L
+    # integrated excess of K over baseline 1 in tau in [1.04, 1.35] (exclude the lattice peak at tau=1)
+    m = (tau > 1.04) & (tau < 1.35); exc = float((P2[m] - 1.0).sum() * du / L)
+    # location of the largest peak in that range
+    sel = np.where(m)[0]; i = sel[np.argmax(P2[sel])]
+    # narrow integral around the largest peak
+    mm = (abs(tau - tau[i]) < 0.01); wpk = float((P2[mm] - 1.0).sum() * du / L)
+    r = dict(name=name, L=L, alpha_pred=a, spike_pred=LAM / L**2, tau_peak=float(tau[i]), peak_height=float(P2[i]), weight_peak=wpk, excess_range=exc)
+    out.append(r); print(f"{name}: L={L:.2f} alpha_pred={a:.4f} tau_peak={tau[i]:.4f} peak K={P2[i]:.1f} integrated weight (±0.01) {wpk:.5f} vs Lambda/L^2 = {LAM/L**2:.5f}; excess over [1.04,1.35] = {exc:.5f}")
+json.dump(out, open('spike.json', 'w'), indent=1)
+EOF
+python3 spike.py 1e7 1e8 1e9 1e10 1e11 t6
+
+Response:
+
+{"returncode":0,"stdout":"1e7: L=14.29 alpha_pred=1.1030 tau_peak=1.0485 peak K=35.5 integrated weight (±0.01) 0.00625 vs Lambda/L^2 = 0.00770; excess over [1.04,1.35] = 0.00826\n1e8: L=16.58 alpha_pred=1.0888 tau_peak=1.0418 peak K=190.4 integrated weight (±0.01) 0.00422 vs Lambda/L^2 = 0.00572; excess over [1.04,1.35] = 0.00711\n1e9: L=18.89 alpha_pred=1.0779 tau_peak=1.0949 peak K=918.7 integrated weight (±0.01) 0.00245 vs Lambda/L^2 = 0.00441; excess over [1.04,1.35] = 0.00032\n1e10: L=21.19 alpha_pred=1.0695 tau_peak=1.0846 peak K=499.4 integrated weight (±0.01) 0.00243 vs Lambda/L^2 = 0.00350; excess over [1.04,1.35] = 0.00268\n1e11: L=23.49 alpha_pred=1.0627 tau_peak=1.0763 peak K=250.1 integrated weight (±0.01) 0.00160 vs Lambda/L^2 = 0.00285; excess over [1.04,1.35] = 0.00240\nt6: L=11.52 alpha_pred=1.1278 tau_peak=1.0622 peak K=11.5 integrated weight (±0.01) 0.00279 vs Lambda/L^2 = 0.01186; excess over [1.04,1.35] = 0.01083\n","stderr":""}
