@@ -1,0 +1,5 @@
+sleep 280; cd /home/squire; cat bk.log | grep -E "^L=|DONE"; tail -3 ff.log
+
+Response:
+
+{"returncode":0,"stdout":"L=18.89: R2(0.2)/(pi^2/3 s^2) = 0.9014; BBLM small-s factor 1-a^2/Ne^2 = 0.9385; time 337s\nL=16.58: R2(0.2)/(pi^2/3 s^2) = 0.8864; BBLM small-s factor 1-a^2/Ne^2 = 0.9186; time 372s\np=17 g=3 N=15000 done in 28s, Weil dev 3.9e-15\np=29 g=3 N=8000 done in 57s, Weil dev 7.8e-15\np=53 g=3 N=4000 done in 203s, Weil dev 5.1e-15\n","stderr":""}
