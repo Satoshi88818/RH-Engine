@@ -1,0 +1,25 @@
+"""Window test + small-gap statistics on Odlyzko's published zeros near the 1e21-st and 1e22-nd zeros."""
+import json, numpy as np
+from scipy.optimize import brentq
+import window_test as W
+F = W.F
+sets = {"zeros4 (zero #1e21, γ≈1.44e20)": ("odlyzko/zeros4", 144176897509546973000),
+        "zeros5 (zero #1e22, γ≈1.37e21)": ("odlyzko/zeros5", 1370919909931995300000)}
+res = []
+for name, (f, C) in sets.items():
+    off = np.loadtxt(f, skiprows=9)
+    gaps = np.diff(off); mid = (0.5 * (off[1:] + off[:-1])) + float(C)
+    L = np.log(mid / (2 * np.pi)); nu = gaps * L / (2 * np.pi); N = len(nu)
+    r = W.analyse_arrays(name, nu, gaps, L, float(C), minw=10)
+    nu_med = brentq(lambda x: N * F(x) - np.log(2), 1e-9, 0.6); i = int(np.argmin(gaps))
+    r.update(N=N + 1, nu_min=float(nu.min()), nu_med=float(nu_med), P=float(1 - np.exp(-N * F(nu.min()))), gap_min=float(gaps.min()),
+             at_offset=float(off[i]), tau_obs=float(gaps.min()**2 / 2), tau_pred=float(2 * np.pi**2 / L.mean()**2 * nu_med**2),
+             small={str(q): [int((nu < q).sum()), float(N * F(q))] for q in (0.05, 0.1, 0.2, 0.3)},
+             mean_spacing=float(gaps.mean()), expected_spacing=float(2 * np.pi / L.mean()))
+    res.append(r)
+    print(f"\n{name}: n={N+1} L={L.mean():.2f} mean gap={gaps.mean():.5f} (2pi/L={2*np.pi/L.mean():.5f})")
+    print(f"  nu_min={nu.min():.4f} GUE median {nu_med:.4f} P={r['P']:.2f} gap_min={gaps.min():.5f} at offset {off[i]:.4f} tau_obs={r['tau_obs']:.2e} tau_pred={r['tau_pred']:.2e}")
+    print("  small-gap counts obs/exp:", {q: f"{v[0]}/{v[1]:.0f}" for q, v in r['small'].items()})
+    for w in r['windows']:
+        print(f"  N0={w['N0']:5d} windows={w['m']:3d} KS p={w['ks_p']:.3f} mean u={w['mean_u']:.2f} medianY={w['median_Y']:.3f} cov95={w['coverage']['0.05']:.2f} cov99={w['coverage']['0.01']:.2f}")
+json.dump(res, open('extreme_heights.json', 'w'), indent=1)
