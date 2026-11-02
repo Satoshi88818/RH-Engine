@@ -1,0 +1,60 @@
+cd /home/squire && cat > bk_pred.py <<'EOF'
+"""Numerical Bogomolny-Keating two-point function of the Riemann zeros and its form factor K(tau).
+r2(eps) = rho^2 + r_diag + r_off,
+ r_diag = -(1/4pi^2) d^2/deps^2 [ log|zeta(1+i eps)|^2 + 2 sum_p sum_{r>=2} (1-r)/(r^2 p^r) cos(eps r log p) ]
+ r_off  = (1/4pi^2) |zeta(1+i eps)|^2 e^{i 2 pi rho eps} prod_p [1 - (1-p^{i eps})^2/(p-1)^2] + c.c.
+ K(tau) = 1 + int (R2(s) - 1) e^{2 pi i tau s} ds,  R2(s) = r2(s/rho)/rho^2, rho = ln(gamma/2pi)/(2pi)."""
+import sys, json, time
+import numpy as np, mpmath as mp
+mp.mp.dps = 20
+pr = np.load('primes_2e8.npy'); P_A = pr[pr <= 200000].astype(float); P_D = pr[pr <= 10000].astype(float)
+lnA = np.log(P_A); lnD = np.log(P_D)
+
+def zeta_parts(eps):
+    f1 = np.empty(len(eps)); f2 = np.empty(len(eps))
+    for i, e in enumerate(eps):
+        s = mp.mpc(1, float(e)); z0 = mp.zeta(s); z1 = mp.zeta(s, derivative=1); z2 = mp.zeta(s, derivative=2)
+        f1[i] = float(abs(z0)**2); f2[i] = float(mp.re(z2 / z0 - (z1 / z0)**2))
+    return f1, f2
+
+def euler_A(eps, chunk=400):
+    out = np.empty(len(eps), dtype=complex)
+    for a in range(0, len(eps), chunk):
+        e = eps[a:a + chunk, None]; pe = np.exp(1j * e * lnA[None, :])
+        out[a:a + chunk] = np.prod(1 - (1 - pe)**2 / (P_A[None, :] - 1)**2, axis=1)
+    return out
+
+def prime_sum2(eps, chunk=400, rmax=14):
+    out = np.zeros(len(eps))
+    for r in range(2, rmax + 1):
+        w = (r - 1) * lnD**2 / P_D**r
+        for a in range(0, len(eps), chunk):
+            out[a:a + chunk] += (np.cos(eps[a:a + chunk, None] * r * lnD[None, :]) * w[None, :]).sum(axis=1)
+    return 2 * out
+
+def R2_grid(L, S, ds):
+    rho = L / (2 * np.pi); s = (np.arange(int(S / ds)) + 0.5) * ds; eps = s / rho
+    f1, f2 = zeta_parts(eps); A = euler_A(eps); P2 = prime_sum2(eps)
+    r_diag = -(1 / (4 * np.pi**2)) * (-2 * f2 + P2)
+    r_off = 2 * np.real((1 / (4 * np.pi**2)) * f1 * np.exp(1j * 2 * np.pi * rho * eps) * A)
+    return s, (r_diag + r_off) / rho**2          # = R2(s) - 1
+
+def K_of_tau(s, R2m1, taus, S, ds):
+    h = np.cos(np.pi * s / (2 * S))**2
+    return np.array([1 + 2 * np.sum(h * R2m1 * np.cos(2 * np.pi * t * s)) * ds for t in taus])
+
+if __name__ == "__main__":
+    L = float(sys.argv[1]); S = float(sys.argv[2]); ds = float(sys.argv[3]); out = sys.argv[4]
+    t0 = time.time(); s, R = R2_grid(L, S, ds)
+    taus = np.arange(0.02, 1.6, 0.002); K = K_of_tau(s, R, taus, S, ds)
+    np.savez(out, L=L, S=S, ds=ds, s=s, R2m1=R, taus=taus, K=K)
+    # sanity: small-s coefficient of R2 vs random-matrix and BBLM
+    ne = L / np.sqrt(12 * 1.5731510713); a = 1 + 1.4721067971 / L
+    i = np.argmin(abs(s - 0.2)); print(f"L={L}: R2(0.2)/(pi^2/3 s^2) = {(1 + R[i]) / (np.pi**2 / 3 * s[i]**2):.4f}; BBLM small-s factor 1-a^2/Ne^2 = {1 - a**2 / ne**2:.4f}; time {time.time()-t0:.0f}s")
+    for t in (0.3, 0.6, 0.9, 1.1, 1.3, 1.5): print(f"  K({t}) = {K[np.argmin(abs(taus - t))]:.4f}")
+EOF
+python3 bk_pred.py 18.89 60 0.05 bk_test.npz; tail -3 ff.log
+
+Response:
+
+{"returncode":0,"stdout":"L=18.89: R2(0.2)/(pi^2/3 s^2) = 0.9091; BBLM small-s factor 1-a^2/Ne^2 = 0.9385; time 12s\n  K(0.3) = 0.2906\n  K(0.6) = 0.6001\n  K(0.9) = 0.9000\n  K(1.1) = 1.1170\n  K(1.3) = 0.9954\n  K(1.5) = 0.9998\np=3 g=4 N=30000 done in 12s, Weil dev 5.9e-09\np=5 g=4 N=30000 done in 16s, Weil dev 1.4e-14\np=7 g=4 N=30000 done in 28s, Weil dev 4.5e-10\n","stderr":""}
