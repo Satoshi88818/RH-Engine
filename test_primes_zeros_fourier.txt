@@ -1,0 +1,74 @@
+cd /home/squire && cat > prime_spectrum.py <<'EOF'
+"""Primes in the zeros: (a) peaks of S(u)=sum_j w_j exp(i gamma_j u) at u=log n with height Lambda(n)/(2 pi sqrt n) * int w;
+(b) form factor K(tau) from the zeros vs the prime-power sum  K_prime(tau) = (1/(L B)) sum_{log n in bin} Lambda(n)^2/n."""
+import sys, json, time
+import numpy as np, finufft
+LD = np.longdouble
+pr = np.load('primes_2e8.npy').astype(np.float64)
+
+def lam_table(nmax):
+    """Lambda(n) for n <= nmax (array), 0 for non-prime-powers."""
+    lam = np.zeros(nmax + 1)
+    for p in pr[pr <= nmax]:
+        q = p
+        while q <= nmax: lam[int(q)] = np.log(p); q *= p
+    return lam
+
+def run(name, nzeros=None, nmax=3000, tau_max=1.5, dtau=0.02):
+    pos = np.load(f'pos_{name}.npy')
+    if nzeros: pos = pos[:nzeros]
+    T0 = pos[0]; d = (pos - T0).astype(float); W = d[-1]; L = float(np.log(float(pos.mean()) / (2 * np.pi)))
+    w = np.sin(np.pi * d / W)**2; M = float((w**2).sum()); intw = W / 2
+    out = dict(name=name, N=len(pos), W=W, L=L)
+    # (a) peaks at u = log n
+    lam = lam_table(nmax); res = []
+    for n in range(2, nmax + 1):
+        u = np.log(n); S = np.sum(w * np.exp(1j * d * u))
+        S_abs = S * np.exp(1j * float(np.mod(T0 * LD(u), 2 * LD(np.pi))))   # remove e^{i T0 u}
+        A = lam[n] / (2 * np.pi * np.sqrt(n)) * intw
+        res.append((n, lam[n], S_abs.real, S_abs.imag, A))
+    res = np.array(res); isp = res[:, 1] > 0
+    pp = res[isp]; npp = res[~isp]
+    ratio = pp[:, 2] / (-pp[:, 4])                                  # expect +1 (S_abs = -A)
+    out['peaks'] = dict(n_primepowers=int(isp.sum()), ratio_mean=float(ratio.mean()), ratio_std=float(ratio.std()),
+                        ratio_min=float(ratio.min()), ratio_max=float(ratio.max()), imag_rms_over_A=float(np.sqrt(np.mean(pp[:, 3]**2 / pp[:, 4]**2))),
+                        nonprime_rms=float(np.sqrt(np.mean(npp[:, 2]**2 + npp[:, 3]**2))), typical_A=float(np.median(pp[:, 4])),
+                        first=[(int(r[0]), float(r[2] / -r[4])) for r in pp[:10]])
+    # (b) form factor from NUFFT
+    Pn = 1.02 * W; kmax = int(tau_max * L * Pn / (2 * np.pi)) + 10; Nm = 1 << int(np.ceil(np.log2(2 * kmax)))
+    f = finufft.nufft1d1(2 * np.pi * d / Pn, w.astype(complex), Nm, eps=1e-10)
+    k = np.arange(-Nm // 2, Nm // 2); u = 2 * np.pi * k / Pn; P2 = np.abs(f)**2 / M
+    edges = np.arange(0.10, tau_max + 1e-9, dtau); nmax_p = 2e8
+    # prime-power histogram of Lambda(n)^2/n
+    logn_edges = edges * L; Kp = np.full(len(edges) - 1, np.nan)
+    sums = np.zeros(len(edges) - 1)
+    for p in pr:
+        lp = np.log(p); q = p; kpow = 1
+        while q <= nmax_p:
+            lq = np.log(q)
+            if lq >= logn_edges[0] and lq < logn_edges[-1]:
+                i = np.searchsorted(logn_edges, lq) - 1; sums[i] += lp * lp / q
+            q *= p; kpow += 1
+            if q > nmax_p: break
+        if lp > logn_edges[-1]: break
+    B = dtau * L; Kp = sums / (L * B)
+    Ke = []; 
+    for a, b in zip(edges[:-1], edges[1:]):
+        m = (u >= a * L) & (u < b * L); Ke.append((P2[m].mean(), P2[m].std() / np.sqrt(max(m.sum() / 2.5, 1))))
+    Ke = np.array(Ke); tc = 0.5 * (edges[:-1] + edges[1:])
+    out['K'] = dict(tau=tc.tolist(), K_emp=Ke[:, 0].tolist(), K_err=Ke[:, 1].tolist(), K_prime=[None if (t * L) > np.log(nmax_p) - B else float(v) for t, v in zip(tc, Kp)], L=L)
+    return out
+
+if __name__ == "__main__":
+    t0 = time.time(); r = run(sys.argv[1], nzeros=int(float(sys.argv[2])) if len(sys.argv) > 2 else None, nmax=int(sys.argv[3]) if len(sys.argv) > 3 else 3000)
+    json.dump(r, open(f'prime_spectrum_{sys.argv[1]}.json', 'w'))
+    p = r['peaks']; print(f"{r['name']}: N={r['N']} W={r['W']:.3g} L={r['L']:.2f}  peaks: {p['n_primepowers']} prime powers, S/(-A) mean {p['ratio_mean']:.4f} std {p['ratio_std']:.4f} range [{p['ratio_min']:.3f},{p['ratio_max']:.3f}]; imag/A rms {p['imag_rms_over_A']:.3f}; non-prime-power |S| rms {p['nonprime_rms']:.3g} vs typical A {p['typical_A']:.3g}  ({time.time()-t0:.0f}s)")
+    print("first peaks S/(-A):", p['first'])
+    K = r['K']
+    for t, ke, er, kp in list(zip(K['tau'], K['K_emp'], K['K_err'], K['K_prime']))[::3]: print(f"  tau={t:.2f}  K_emp={ke:.3f}±{er:.3f}  K_prime={'—' if kp is None else f'{kp:.3f}'}  tau={t:.2f}")
+EOF
+python3 prime_spectrum.py 1e9 200000 1500
+
+Response:
+
+{"returncode":0,"stdout":"1e9: N=200000 W=6.65e+04 L=18.89  peaks: 267 prime powers, S/(-A) mean 1.0000 std 0.0000 range [1.000,1.000]; imag/A rms 0.000; non-prime-power |S| rms 0.158 vs typical A 1.29e+03  (48s)\nfirst peaks S/(-A): [(2, 1.0000076256224255), (3, 1.0000114425367348), (4, 1.000011612746011), (5, 1.0000153952327144), (7, 1.000017475769948), (8, 1.0000142647488721), (9, 1.0000161135275907), (11, 1.0000201891577838), (13, 1.0000212958426595), (16, 1.0000137357412713)]\n  tau=0.11  K_emp=0.103±0.084  K_prime=0.103  tau=0.11\n  tau=0.17  K_emp=0.136±0.090  K_prime=0.136  tau=0.17\n  tau=0.23  K_emp=0.210±0.092  K_prime=0.210  tau=0.23\n  tau=0.29  K_emp=0.278±0.075  K_prime=0.278  tau=0.29\n  tau=0.35  K_emp=0.348±0.057  K_prime=0.348  tau=0.35\n  tau=0.41  K_emp=0.407±0.040  K_prime=0.407  tau=0.41\n  tau=0.47  K_emp=0.459±0.027  K_prime=0.459  tau=0.47\n  tau=0.53  K_emp=0.542±0.019  K_prime=0.527  tau=0.53\n  tau=0.59  K_emp=0.592±0.016  K_prime=0.588  tau=0.59\n  tau=0.65  K_emp=0.647±0.016  K_prime=0.651  tau=0.65\n  tau=0.71  K_emp=0.703±0.018  K_prime=0.710  tau=0.71\n  tau=0.77  K_emp=0.790±0.023  K_prime=0.769  tau=0.77\n  tau=0.83  K_emp=0.830±0.034  K_prime=0.830  tau=0.83\n  tau=0.89  K_emp=0.880±0.051  K_prime=0.890  tau=0.89\n  tau=0.95  K_emp=0.989±0.089  K_prime=0.950  tau=0.95\n  tau=1.01  K_emp=0.943±0.094  K_prime=—  tau=1.01\n  tau=1.07  K_emp=0.912±0.041  K_prime=—  tau=1.07\n  tau=1.13  K_emp=1.111±0.121  K_prime=—  tau=1.13\n  tau=1.19  K_emp=1.072±0.088  K_prime=—  tau=1.19\n  tau=1.25  K_emp=0.994±0.035  K_prime=—  tau=1.25\n  tau=1.31  K_emp=0.976±0.029  K_prime=—  tau=1.31\n  tau=1.37  K_emp=1.010±0.025  K_prime=—  tau=1.37\n  tau=1.43  K_emp=0.980±0.023  K_prime=—  tau=1.43\n  tau=1.49  K_emp=0.954±0.024  K_prime=—  tau=1.49\n","stderr":""}
