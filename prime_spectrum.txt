@@ -1,0 +1,67 @@
+"""Primes in the zeros: (a) peaks of S(u)=sum_j w_j exp(i gamma_j u) at u=log n with height Lambda(n)/(2 pi sqrt n) * int w;
+(b) form factor K(tau) from the zeros vs the prime-power sum  K_prime(tau) = (1/(L B)) sum_{log n in bin} Lambda(n)^2/n."""
+import sys, json, time
+import numpy as np, finufft
+LD = np.longdouble
+pr = np.load('primes_2e8.npy').astype(np.float64)
+
+def lam_table(nmax):
+    """Lambda(n) for n <= nmax (array), 0 for non-prime-powers."""
+    lam = np.zeros(nmax + 1)
+    for p in pr[pr <= nmax]:
+        q = p
+        while q <= nmax: lam[int(q)] = np.log(p); q *= p
+    return lam
+
+def run(name, nzeros=None, nmax=3000, tau_max=2.0, dtau=0.02):
+    pos = np.load(f'pos_{name}.npy')
+    if nzeros: pos = pos[:nzeros]
+    T0 = pos[0]; d = (pos - T0).astype(float); W = d[-1]; L = float(np.log(float(pos.mean()) / (2 * np.pi)))
+    w = np.sin(np.pi * d / W)**2; M = float((w**2).sum()); intw = W / 2
+    out = dict(name=name, N=len(pos), W=W, L=L)
+    # (a) peaks at u = log n
+    lam = lam_table(max(nmax, 2)); res = []
+    for n in range(2, nmax + 1):
+        u = np.log(n); S = np.sum(w * np.exp(1j * d * u))
+        S_abs = S * np.exp(1j * float(np.mod(T0 * LD(u), 2 * LD(np.pi))))   # remove e^{i T0 u}
+        A = lam[n] / (2 * np.pi * np.sqrt(n)) * intw
+        res.append((n, lam[n], S_abs.real, S_abs.imag, A))
+    res = np.array(res) if res else np.zeros((1, 5)); isp = res[:, 1] > 0
+    pp = res[isp] if isp.any() else res; npp = res[~isp] if (~isp).any() else res
+    ratio = pp[:, 2] / (-pp[:, 4] + 1e-300)                         # expect +1 (S_abs = -A)
+    out['peaks'] = dict(n_primepowers=int(isp.sum()), ratio_mean=float(ratio.mean()), ratio_std=float(ratio.std()),
+                        ratio_min=float(ratio.min()), ratio_max=float(ratio.max()), imag_rms_over_A=float(np.sqrt(np.mean(pp[:, 3]**2 / pp[:, 4]**2))),
+                        nonprime_rms=float(np.sqrt(np.mean(npp[:, 2]**2 + npp[:, 3]**2))), typical_A=float(np.median(pp[:, 4])),
+                        first=[(int(r[0]), float(r[2] / -r[4])) for r in pp[:10]])
+    # (b) form factor from NUFFT
+    Pn = 1.02 * W; kmax = int(tau_max * L * Pn / (2 * np.pi)) + 10; Nm = 1 << int(np.ceil(np.log2(2 * kmax)))
+    f = finufft.nufft1d1(2 * np.pi * d / Pn, w.astype(complex), Nm, eps=1e-10)
+    k = np.arange(-Nm // 2, Nm // 2); u = 2 * np.pi * k / Pn; P2 = np.abs(f)**2 / M
+    edges = np.arange(0.10, tau_max + 1e-9, dtau); nmax_p = 2e8
+    # prime-power histogram of Lambda(n)^2/n (vectorised)
+    logn_edges = edges * L; lp_all = np.log(pr); sums = np.zeros(len(edges) - 1); kk = 1
+    while True:
+        m = pr <= nmax_p ** (1.0 / kk)
+        if not m.any(): break
+        lq = kk * lp_all[m]; wts = lp_all[m]**2 / (pr[m] ** kk)
+        sums += np.histogram(lq, bins=logn_edges, weights=wts)[0]; kk += 1
+    B = dtau * L; Kp = sums / (L * B)
+    Ke = []; 
+    for a, b in zip(edges[:-1], edges[1:]):
+        m = (u >= a * L) & (u < b * L); Ke.append((P2[m].mean(), P2[m].std() / np.sqrt(max(m.sum() / 2.5, 1))))
+    Ke = np.array(Ke); tc = 0.5 * (edges[:-1] + edges[1:])
+    out['K'] = dict(tau=tc.tolist(), K_emp=Ke[:, 0].tolist(), K_err=Ke[:, 1].tolist(), K_prime=[None if (t * L) > np.log(nmax_p) - B else float(v) for t, v in zip(tc, Kp)], L=L)
+    Kc = np.interp(np.arange(0.0, tau_max, 0.001), np.concatenate([[0.0], tc]), np.concatenate([[0.0], Ke[:, 0]]))
+    tt = np.arange(0.0, tau_max, 0.001)
+    out['R_K'] = float(12 * np.sum(tt**2 * (1 - np.minimum(Kc, 1.0))) * 0.001)
+    return out
+
+if __name__ == "__main__":
+    nmax_arg = int(sys.argv[3]) if len(sys.argv) > 3 else 3000
+    t0 = time.time(); r = run(sys.argv[1], nzeros=int(float(sys.argv[2])) if len(sys.argv) > 2 else None, nmax=int(sys.argv[3]) if len(sys.argv) > 3 else 3000)
+    json.dump(r, open(f'prime_spectrum_{sys.argv[1]}.json', 'w'))
+    if nmax_arg == 0: print(f"{r['name']}: N={r['N']} L={r['L']:.2f}  R_K = 12*int tau^2 (1-K) = {r['R_K']:.3f}")
+    p = r['peaks']; print(f"{r['name']}: N={r['N']} W={r['W']:.3g} L={r['L']:.2f}  peaks: {p['n_primepowers']} prime powers, S/(-A) mean {p['ratio_mean']:.4f} std {p['ratio_std']:.4f} range [{p['ratio_min']:.3f},{p['ratio_max']:.3f}]; imag/A rms {p['imag_rms_over_A']:.3f}; non-prime-power |S| rms {p['nonprime_rms']:.3g} vs typical A {p['typical_A']:.3g}  ({time.time()-t0:.0f}s)")
+    print("first peaks S/(-A):", p['first'])
+    K = r['K']
+    for t, ke, er, kp in list(zip(K['tau'], K['K_emp'], K['K_err'], K['K_prime']))[::3]: print(f"  tau={t:.2f}  K_emp={ke:.3f}±{er:.3f}  K_prime={'—' if kp is None else f'{kp:.3f}'}  tau={t:.2f}")
