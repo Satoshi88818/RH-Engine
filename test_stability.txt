@@ -1,0 +1,19 @@
+cd /home/squire && cat > line_stab.py <<'EOF'
+import numpy as np, finufft
+LAM=1.5731510713
+def weights(name, n, hw=0.08, qs=(2,6,10)):
+    pos=np.load(f'pos_{name}.npy')[:n]; d=(pos-pos[0]).astype(float); W=d[-1]; L=float(np.log(float(pos.mean())/(2*np.pi)))
+    w=np.sin(np.pi*d/W)**2; M=float((w**2).sum()); Pn=1.02*W
+    kmax=int(1.2*L*Pn/(2*np.pi))+10; Nm=1<<int(np.ceil(np.log2(2*kmax)))
+    f=finufft.nufft1d1(2*np.pi*d/Pn,w.astype(complex),Nm,eps=1e-10); k=np.arange(-Nm//2,Nm//2); u=2*np.pi*k/Pn; P2=np.abs(f)**2/M; du=2*np.pi/Pn
+    base=P2[(u>1.15*L)&(u<1.35*L)].mean()
+    return L,[float(((P2[(u>L+np.log(q)-hw)&(u<L+np.log(q)+hw)]-base).sum()*du/L)*L**2) for q in qs],base
+for name,ns in [("1e9",[50000,100000,200000,500000]),("1e8",[100000,500000]),("1e11",[50000,150000])]:
+    for n in ns:
+        L,g,b=weights(name,n); print(f"{name} N={n}: L={L:.2f} baseline={b:.3f}  weight*L^2 for q=2,6,10: {g[0]:.2f} {g[1]:.2f} {g[2]:.2f}   (predicted 2.00 1.50 0.625)")
+EOF
+python3 line_stab.py
+
+Response:
+
+{"returncode":0,"stdout":"1e9 N=50000: L=18.89 baseline=1.006  weight*L^2 for q=2,6,10: 1.53 1.08 0.20   (predicted 2.00 1.50 0.625)\n1e9 N=100000: L=18.89 baseline=1.002  weight*L^2 for q=2,6,10: 1.53 1.27 0.57   (predicted 2.00 1.50 0.625)\n1e9 N=200000: L=18.89 baseline=0.992  weight*L^2 for q=2,6,10: 1.45 1.14 0.58   (predicted 2.00 1.50 0.625)\n1e9 N=500000: L=18.89 baseline=1.001  weight*L^2 for q=2,6,10: 1.33 0.95 0.34   (predicted 2.00 1.50 0.625)\n1e8 N=100000: L=16.58 baseline=0.996  weight*L^2 for q=2,6,10: 1.48 1.06 0.44   (predicted 2.00 1.50 0.625)\n1e8 N=500000: L=16.58 baseline=1.003  weight*L^2 for q=2,6,10: 1.55 0.89 0.30   (predicted 2.00 1.50 0.625)\n1e11 N=50000: L=23.49 baseline=0.992  weight*L^2 for q=2,6,10: 1.77 1.34 0.06   (predicted 2.00 1.50 0.625)\n1e11 N=150000: L=23.49 baseline=1.007  weight*L^2 for q=2,6,10: 1.20 0.99 0.43   (predicted 2.00 1.50 0.625)\n","stderr":""}
