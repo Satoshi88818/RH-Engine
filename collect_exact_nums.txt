@@ -1,0 +1,17 @@
+cd /home/squire && python3 - <<'EOF'
+import json, numpy as np
+H=json.load(open('results_final.json'))
+r=np.array([x['s_c']/x['lemma_all'] for x in H if not np.isnan(x['s_c'])])
+print("harness: windows",len(H),"zeros",sum(x['n_zeros'] for x in H),"collision windows",len(r),"ratio min/med/max",round(r.min(),3),round(np.median(r),3),round(r.max(),3),"n>=1",int((r>=1).sum()))
+Fw=json.load(open('forward_results.json')); print("forward: windows",len(Fw),"zeros",sum(x['c0'] for x in Fw),"runs",sum(len(x['per_t']) for x in Fw),
+  "control all +2:",all(abs(p['control_winding']-p['winding']-2)<1e-6 for x in Fw for p in x['per_t']),"nonreal:",max(abs(p['winding']-p['n_real']) for x in Fw for p in x['per_t']))
+Fl=json.load(open('flow2_results.json')); P=Fl['pairs']; rp=np.array([p['s_c']/p['lemma'] for p in P]); print("pairs(<=1e9) n",len(P),"ratio",rp.min(),np.median(rp),rp.max())
+T=[x for x in Fl['typical'] if 's_c' in x and not np.isnan(x['s_c'])]; rt=np.array([x['s_c']/x['lemma'] for x in T]); print("typical n",len(T),"ratio med",np.median(rt))
+fh=json.load(open('flow_check_high.json')); rh=np.array([x['s_c']/x['lemma'] for x in fh]); print("high pairs",len(fh),rh.min(),rh.max())
+fs=json.load(open('final_stats.json')); print("coverage",fs['coverage']); print("slopes mean",np.mean([s[1] for s in fs['slopes']]),[round(s[1],3) for s in fs['slopes']])
+for e in fs['extrapolation']: print("extrap x=%.0e N=%.1e t5=%.1e t50=%.1e"%(e['x'],e['N'],e['tau_q0.05'],e['tau_q0.5']))
+for q in fs['rows']: print(q['name'],q['N'],round(q['L'],1),round(q['nu_min'],4),round(q['P'],2),q['small']['0.1'][0],round(q['small']['0.1'][1]))
+c=json.load(open('compare_odlyzko.json')); z=c['zeros6']; print("zeros6",z['n_table'],z['n_mine'],z['unique'],z['max_gap_diff_25'],z['same_25_pairs']); z3=c['zeros3']; print("zeros3",z3['n_table'],z3['n_mine'],z3['median'],z3['max'],z3['max_gap_diff_12'],z3['same_12_pairs'])
+wt=json.load(open('window_test.json')); print("window datasets",len(wt),"total windows",sum(w['m'] for d in wt for w in d['windows']))
+EOF
+tail -6 run_all.log | cut -c1-160
