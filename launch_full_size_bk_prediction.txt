@@ -1,0 +1,11 @@
+cd /home/squire && cat > run_bk.sh <<'EOF'
+#!/bin/bash
+cd /home/squire 
+for L in 18.89 16.58 21.19; do python3 bk_pred.py $L 400 0.03 bk_L$L.npz >> bk.log 2>&1; done
+echo BKDONE >> bk.log
+EOF
+chmod +x run_bk.sh; (setsid nohup ./run_bk.sh > /dev/null 2>&1 < /dev/null &); sleep 240; cat bk.log; tail -4 ff.log
+
+Response:
+
+{"returncode":0,"stdout":"p=5 g=4 N=30000 done in 16s, Weil dev 1.4e-14\np=7 g=4 N=30000 done in 28s, Weil dev 4.5e-10\np=11 g=4 N=15000 done in 87s, Weil dev 1.0e-14\np=13 g=4 N=10000 done in 110s, Weil dev 3.3e-14\n","stderr":""}
