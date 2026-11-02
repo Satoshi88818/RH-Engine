@@ -1,0 +1,32 @@
+import json, numpy as np
+from scipy.interpolate import CubicSpline
+import window_test as W
+LD = np.longdouble
+T = np.load('bblm_tables.npz'); xs, F0t, G1t = T['xs'], T['F0'], T['G1']
+sF0 = CubicSpline(np.concatenate([[0], xs]), np.concatenate([[0], F0t])); sG1 = CubicSpline(np.concatenate([[0], xs]), np.concatenate([[0], G1t]))
+LAM, CC = 1.5731510713, 1.4721067971
+def predict(x, L):
+    Ne = L / np.sqrt(12 * LAM); a = 1 + CC / L
+    return sF0(x) + sG1(np.minimum(a * x, xs[-1])) / (a * Ne**2), Ne, a
+def datasets():
+    tab = np.loadtxt('odlyzko/zeros6')
+    for lo, hi in [(1e3, 1e4), (1e4, 1e5), (1e5, 1e6), (1e6, 1.2e6)]:
+        nu, g, L = W.norm_gaps(tab[(tab >= lo) & (tab < hi)]); yield f"zeros6 [{lo:.0e},{min(hi,1.13e6):.2g})", nu, L
+    for f, C, name in [("odlyzko/zeros3", 267653395647, "zeros3 (~2.7e11)"), ("odlyzko/zeros4", 144176897509546973000, "zeros4 (~1.4e20)"), ("odlyzko/zeros5", 1370919909931995300000, "zeros5 (~1.4e21)")]:
+        off = np.loadtxt(f, skiprows=7 if f.endswith('3') else 9); g = np.diff(off); mid = 0.5 * (off[1:] + off[:-1]) + float(C)
+        L = np.log(mid / (2 * np.pi)); yield name, g * L / (2 * np.pi), L
+    for n in ("1e7", "1e8", "1e9", "1e10", "1e11"):
+        nu, g, L = W.norm_gaps(np.load(f"pos_{n}.npy")); yield f"mine {n}", nu, L
+out = []; X = (0.1, 0.2, 0.3, 0.5)
+print("dataset | N | <L> | N_e | alpha | for x in", X, ": obs | GUE exp | BBLM exp | z_GUE | z_BBLM")
+for name, nu, L in datasets():
+    row = dict(name=name, N=len(nu), L=float(L.mean()), Ne=float(L.mean() / np.sqrt(12 * LAM)), alpha=float(1 + CC / L.mean()), x={})
+    for x in X:
+        obs = int((nu < x).sum()); g = float(sF0(x)) * len(nu)
+        # per-gap prediction (each gap has its own height)
+        pk = np.array([predict(x, Lj)[0] for Lj in L[::max(1, len(L) // 20000)]]).mean() * len(nu)
+        zg = (obs - g) / np.sqrt(g); zb = (obs - pk) / np.sqrt(pk)
+        row['x'][str(x)] = dict(obs=obs, gue=g, bblm=float(pk), z_gue=float(zg), z_bblm=float(zb))
+    out.append(row)
+    print(f"{name:22s} N={row['N']:8d} L={row['L']:5.1f} Ne={row['Ne']:5.2f} a={row['alpha']:.3f} | " + " | ".join(f"x={x}: {v['obs']}/{v['gue']:.0f}/{v['bblm']:.0f} z={v['z_gue']:+.1f}/{v['z_bblm']:+.1f}" for x, v in row['x'].items()))
+json.dump(out, open('bblm_results.json', 'w'), indent=1)
