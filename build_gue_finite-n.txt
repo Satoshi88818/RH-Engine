@@ -1,0 +1,39 @@
+cd /home/squire && cat > bblm_test.py <<'EOF'
+"""Test of the Bogomolny-Bohigas-Leboeuf-Monastra finite-height correction to the nearest-neighbour spacing of zeta zeros.
+Prediction (BBLM 2006): CDF of normalised spacing  F(x) = F0(x) + (1/N_e^2) (1/alpha) G1(alpha x),
+   N_e = ln(E/2pi)/sqrt(12 Lambda),  alpha = 1 + C/ln(E/2pi),  Lambda = 1.57314..,  C = Q/Lambda = 1.4720..
+F0 = sine-kernel (GUE) CDF,  G1 = lim N^2 (F_CUE(N) - F0)."""
+import json, numpy as np
+from scipy.interpolate import CubicSpline
+LAMBDA, CC = 1.5731510713, 1.4721067971
+F = lambda x: (np.pi**2 / 9) * x**3 - (2 * np.pi**4 / 225) * x**5
+
+def E0(s, m=28):
+    t, w = np.polynomial.legendre.leggauss(m); x = 0.5 * s * (t + 1); w = 0.5 * s * w
+    d = x[:, None] - x[None, :]; np.fill_diagonal(d, 1.0)
+    K = np.sin(np.pi * d) / (np.pi * d); np.fill_diagonal(K, 1.0)
+    sw = np.sqrt(w); return np.linalg.det(np.eye(m) - sw[:, None] * K * sw[None, :])
+
+def EN(s, N):
+    j = np.arange(N); d = (j[:, None] - j[None, :]).astype(float); np.fill_diagonal(d, 1.0)
+    M = np.sin(np.pi * s * d / N) / (np.pi * d); np.fill_diagonal(M, s / N)
+    return np.linalg.det(np.eye(N) - M)
+
+def cdf(Efun, x, h=2e-5):
+    return 1 + (Efun(x + h) - Efun(x - h)) / (2 * h)
+
+xs = np.linspace(0.005, 1.2, 240)
+F0 = np.array([cdf(E0, x) for x in xs])
+def G1(N): return N**2 * (np.array([cdf(lambda s: EN(s, N), x) for x in xs]) - F0)
+g60, g120 = G1(60), G1(120); G1v = (4 * g120 - g60) / 3
+if __name__ == "__main__":
+    print("check F0 vs series at x=0.2:", F0[np.argmin(abs(xs - 0.2))], F(0.2))
+    print("check CUE(20) cubic coeff ratio:", (cdf(lambda s: EN(s, 20), 0.1) / (np.pi**2 / 9 * 0.1**3)), "expected ~", 1 - 1 / 400)
+    print("G1 small-x coeff check: G1(0.1)/(−pi^2/9 0.1^3) =", G1v[np.argmin(abs(xs - 0.1))] / (-(np.pi**2 / 9) * 0.1**3))
+    np.savez('bblm_tables.npz', xs=xs, F0=F0, G1=G1v)
+EOF
+python3 bblm_test.py
+
+Response:
+
+{"returncode":0,"stdout":"check F0 vs series at x=0.2: 0.008501338593202346 0.008495906942027159\ncheck CUE(20) cubic coeff ratio: 0.9896925098556172 expected ~ 0.9975\nG1 small-x coeff check: G1(0.1)/(−pi^2/9 0.1^3) = 0.9825756233755116\n","stderr":""}
