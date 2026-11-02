@@ -1,0 +1,46 @@
+cd /home/squire && cat > predict_lines.py <<'EOF'
+"""Predicted line weights from the Bogomolny-Keating off-diagonal term:
+   G(eps) = |zeta(1+i eps)|^2 * prod_p [1 - (1-p^{i eps})^2/(p-1)^2] = sum_r g(r) r^{i eps};  line at tau = 1 + ln r / L with weight g(r)/L^2."""
+import numpy as np, json
+from math import gcd
+from scipy.special import zeta
+NMAX = 400000
+# smallest prime factor sieve
+spf = np.zeros(NMAX + 1, dtype=np.int64)
+for i in range(2, NMAX + 1):
+    if spf[i] == 0:
+        spf[i::i][spf[i::i] == 0] = i
+a0 = lambda p: 1 - 1 / (p - 1)**2
+a1 = lambda p: 2 / (p - 1)**2
+a2c = lambda p: -1 / (p - 1)**2
+# P0 = prod_{p>2} a0(p)  (p=2 has a0 = 0, treated separately)
+pr = np.nonzero((spf == np.arange(NMAX + 1)) & (np.arange(NMAX + 1) >= 2))[0]
+P0 = np.prod([a0(p) for p in pr if p > 2]) * np.exp(-np.sum([1.0 / (p - 1)**2 for p in range(500000, 5000000, 7)]) * 0)  # tail beyond NMAX ~ 1
+coef = np.zeros(NMAX + 1)
+for n in range(1, NMAX + 1):
+    m = n; v2 = 0
+    while m % 2 == 0: m //= 2; v2 += 1
+    if v2 not in (1, 2): continue
+    c = {1: 2.0, 2: -1.0}[v2]; ok = True
+    while m > 1:
+        p = spf[m]; k = 0
+        while m % p == 0: m //= p; k += 1
+        if k > 2: ok = False; break
+        c *= (a1(p) if k == 1 else a2c(p)) / a0(p)
+    if ok: coef[n] = c * P0
+Z2 = zeta(2)
+def g(P, Q):
+    d = gcd(P, Q); P //= d; Q //= d
+    n = np.nonzero(coef)[0]; gg = np.gcd(P, Q * n)
+    a = P // gg; b = Q * n // gg
+    return Z2 * np.sum(coef[n] / (a * b))
+if __name__ == "__main__":
+    print("P0 (prod_{p>2} a0)=", P0, " sum|coef|", np.abs(coef).sum())
+    for r in [(2,1),(3,1),(6,1),(10,1),(5,1),(7,1),(30,1),(29,1),(31,1),(3,2),(4,3),(5,2),(5,3),(14,1),(15,1),(22,1)]:
+        print(r, round(g(*r), 4))
+EOF
+python3 predict_lines.py
+
+Response:
+
+{"returncode":0,"stdout":"P0 (prod_{p>2} a0)= 0.660161935028132  sum|coef| 5.715133619023587\n(2, 1) 2.0\n(3, 1) 0.75\n(6, 1) 1.5\n(10, 1) 0.625\n(5, 1) 0.3125\n(7, 1) 0.1944\n(30, 1) 0.4688\n(29, 1) 0.037\n(31, 1) 0.0344\n(3, 2) 0.375\n(4, 3) -0.0\n(5, 2) 0.1563\n(5, 3) 0.1042\n(14, 1) 0.3889\n(15, 1) 0.2344\n(22, 1) 0.22\n","stderr":""}
