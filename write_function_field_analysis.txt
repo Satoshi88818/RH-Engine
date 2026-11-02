@@ -1,0 +1,40 @@
+cd /home/squire && cat > ff_analyze.py <<'EOF'
+import json, numpy as np
+R = json.load(open('ff_results.json'))
+def usp_sq(n, g):
+    eta = 1 if n % 2 == 0 else 0
+    return n + eta if n <= g else (n - 1 + eta if n <= 2 * g else 2 * g)
+def usp_mean(n, g): return -1.0 if (n % 2 == 0 and n <= 2 * g) else 0.0
+def get(p, g): return [r for r in R if r['p'] == p and r['g'] == g][0]
+out = {}
+print("== family g=4: E[t_n^2] vs USp(8) by field size q ==")
+for p in (3, 5, 7, 11, 13, 17):
+    r = get(p, 4); ms = np.array(r['mean_sq']); se = np.array(r['se_sq']); n = np.arange(1, len(ms) + 1)
+    pred = np.array([usp_sq(k, 4) for k in n]); dev = ms - pred
+    sel = n <= 16
+    print(f"q={p:3d} N={r['N']:6d}  rms dev n<=8: {np.sqrt(np.mean(dev[:8]**2)):.3f} (noise {np.sqrt(np.mean(se[:8]**2)):.3f})  rms dev 9..16: {np.sqrt(np.mean(dev[8:16]**2)):.3f} (noise {np.sqrt(np.mean(se[8:16]**2)):.3f})  |dev|/se max: {np.max(np.abs(dev[:16])/se[:16]):.1f}")
+    out[f"g4_q{p}"] = dict(dev=dev.tolist(), se=se.tolist())
+print("== K(n/2g) = E t_n^2 / 2g, g=4, q=17 and USp ==")
+r = get(17, 4); ms = np.array(r['mean_sq']); 
+for n in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16): print(f"n={n:2d} tau={n/8:.3f} measured {ms[n-1]/8:.3f}±{r['se_sq'][n-1]/8:.3f}  USp {usp_sq(n,4)/8:.3f}")
+print("== means E[t_n] (USp: -1 for even n <= 2g) ==")
+for p in (7, 17):
+    r = get(p, 4); m = np.array(r['mean']); print(f"q={p}", [f"{x:+.2f}" for x in m[:10]], " se~", round(r['se_mean'][3], 3))
+print("== g=3: deviation vs q (rms over n=1..6 of E t_n^2 - USp) ==")
+for p in (3, 5, 7, 11, 17, 29, 53):
+    r = get(p, 3); ms = np.array(r['mean_sq']); se = np.array(r['se_sq']); n = np.arange(1, len(ms) + 1); pred = np.array([usp_sq(k, 3) for k in n]); dev = ms - pred
+    print(f"q={p:3d} N={r['N']:6d} rms dev n<=6: {np.sqrt(np.mean(dev[:6]**2)):.3f} noise {np.sqrt(np.mean(se[:6]**2)):.3f}  dev(n=3)={dev[2]:+.3f} dev(n=4)={dev[3]:+.3f}  dev beyond 2g (n=7..12) mean {dev[6:12].mean():+.3f}")
+    out[f"g3_q{p}"] = dict(dev=dev.tolist(), se=se.tolist())
+print("== large genus, small q ==")
+for p, g in ((5, 6), (3, 8), (3, 10)):
+    r = get(p, g); ms = np.array(r['mean_sq']); se = np.array(r['se_sq']); n = np.arange(1, len(ms) + 1); pred = np.array([usp_sq(k, g) for k in n]); dev = ms - pred
+    print(f"q={p} g={g} N={r['N']}: K at tau=n/2g:  " + "  ".join(f"{k/(2*g):.2f}:{ms[k-1]/(2*g):.3f}" for k in (g//2, g, 3*g//2, 2*g, 2*g+2, 3*g, 4*g)))
+    print(f"   dev from USp: n<=g rms {np.sqrt(np.mean(dev[:g]**2)):.3f} | g<n<=2g rms {np.sqrt(np.mean(dev[g:2*g]**2)):.3f} | n>2g mean {dev[2*g:].mean():+.3f} (noise {np.sqrt(np.mean(se[2*g:]**2)):.3f});  E t_n^2 - 2g for n = 2g+1.. : " + " ".join(f"{d:+.2f}" for d in dev[2*g:2*g+8]))
+    out[f"g{g}_q{p}"] = dict(ms=ms.tolist(), dev=dev.tolist(), se=se.tolist())
+json.dump(out, open('ff_analysis.json', 'w'))
+EOF
+sleep 120; tail -2 ff.log; grep -E "^L=|DONE" bk.log
+
+Response:
+
+{"returncode":0,"stdout":"p=53 g=3 N=4000 done in 203s, Weil dev 5.1e-15\np=5 g=6 N=20000 done in 210s, Weil dev 1.9e-13\nL=18.89: R2(0.2)/(pi^2/3 s^2) = 0.9014; BBLM small-s factor 1-a^2/Ne^2 = 0.9385; time 337s\nL=16.58: R2(0.2)/(pi^2/3 s^2) = 0.8864; BBLM small-s factor 1-a^2/Ne^2 = 0.9186; time 372s\n","stderr":""}
