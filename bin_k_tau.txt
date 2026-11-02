@@ -1,0 +1,30 @@
+cd /home/squire && cat > spike2.py <<'EOF'
+import sys, json, numpy as np, finufft
+LAM, CC = 1.5731510713, 1.4721067971
+res = []
+for name in sys.argv[1:]:
+    pos = np.load(f'pos_{name}.npy'); d = (pos - pos[0]).astype(float); W = d[-1]; L = float(np.log(float(pos.mean()) / (2 * np.pi)))
+    w = np.sin(np.pi * d / W)**2; M = float((w**2).sum()); Pn = 1.02 * W
+    kmax = int(1.4 * L * Pn / (2 * np.pi)) + 10; Nm = 1 << int(np.ceil(np.log2(2 * kmax)))
+    f = finufft.nufft1d1(2 * np.pi * d / Pn, w.astype(complex), Nm, eps=1e-10)
+    k = np.arange(-Nm // 2, Nm // 2); tau = 2 * np.pi * k / Pn / L; P2 = np.abs(f)**2 / M; dtau = 2 * np.pi / Pn / L
+    a = 1 + CC / L; step = 0.004; edges = np.arange(0.90, 1.30, step)
+    Kb = np.array([P2[(tau >= e) & (tau < e + step)].mean() for e in edges])
+    # contiguous reference baseline from tau in [1.20,1.40] (K should be ~1 there)
+    base = P2[(tau > 1.20) & (tau < 1.40)].mean()
+    exc = (Kb - base) * step
+    top = np.argsort(-exc)[:4]
+    row = dict(name=name, L=L, alpha=a, spike=LAM / L**2, baseline=float(base), edges=edges.tolist(), Kb=Kb.tolist(),
+               top=[(float(edges[i] + step / 2), float(exc[i])) for i in top])
+    # excess integrated over windows around alpha
+    for lo, hi in [(-0.03, 0.05)]:
+        m = (edges + step / 2 > a + lo) & (edges + step / 2 < a + hi); row['excess_window'] = float(exc[m].sum())
+    res.append(row)
+    print(f"{name}: L={L:.2f} alpha_pred={a:.4f} baseline K(1.2-1.4)={base:.3f}  excess in [alpha-0.03, alpha+0.05] = {row['excess_window']:.5f}  vs Lambda/L^2 = {LAM/L**2:.5f};  largest 4 bins (tau, excess weight): " + ", ".join(f"({t:.3f},{e:.4f})" for t, e in row['top']))
+json.dump(res, open('spike2.json', 'w'))
+EOF
+python3 spike2.py 1e7 1e8 1e9 1e10 1e11 t6
+
+Response:
+
+{"returncode":0,"stdout":"1e7: L=14.29 alpha_pred=1.1030 baseline K(1.2-1.4)=1.002  excess in [alpha-0.03, alpha+0.05] = 0.00324  vs Lambda/L^2 = 0.00770;  largest 4 bins (tau, excess weight): (1.050,0.0088), (1.126,0.0064), (1.078,0.0027), (1.162,0.0021)\n1e8: L=16.58 alpha_pred=1.0888 baseline K(1.2-1.4)=1.006  excess in [alpha-0.03, alpha+0.05] = 0.00214  vs Lambda/L^2 = 0.00572;  largest 4 bins (tau, excess weight): (1.042,0.0065), (1.110,0.0044), (1.066,0.0018), (1.138,0.0016)\n1e9: L=18.89 alpha_pred=1.0779 baseline K(1.2-1.4)=0.994  excess in [alpha-0.03, alpha+0.05] = 0.00161  vs Lambda/L^2 = 0.00441;  largest 4 bins (tau, excess weight): (1.038,0.0044), (1.094,0.0034), (1.058,0.0015), (1.122,0.0012)\n1e10: L=21.19 alpha_pred=1.0695 baseline K(1.2-1.4)=1.011  excess in [alpha-0.03, alpha+0.05] = -0.00030  vs Lambda/L^2 = 0.00350;  largest 4 bins (tau, excess weight): (1.034,0.0038), (1.086,0.0030), (1.050,0.0012), (0.998,0.0011)\n1e11: L=23.49 alpha_pred=1.0627 baseline K(1.2-1.4)=1.003  excess in [alpha-0.03, alpha+0.05] = -0.00047  vs Lambda/L^2 = 0.00285;  largest 4 bins (tau, excess weight): (1.030,0.0026), (1.078,0.0023), (0.998,0.0012), (1.114,0.0010)\nt6: L=11.52 alpha_pred=1.1278 baseline K(1.2-1.4)=1.004  excess in [alpha-0.03, alpha+0.05] = 0.00359  vs Lambda/L^2 = 0.01186;  largest 4 bins (tau, excess weight): (1.070,0.0006), (1.062,0.0006), (1.058,0.0005), (1.078,0.0005)\n","stderr":""}
