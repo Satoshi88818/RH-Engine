@@ -1,0 +1,28 @@
+import sys, json, numpy as np, finufft
+LAM, CC = 1.5731510713, 1.4721067971
+def squarefree(n): 
+    m = n; p = 2
+    while p * p <= m:
+        if m % (p * p) == 0: return False
+        p += 1
+    return True
+Q = [q for q in range(2, 61) if squarefree(q)]
+res = []
+for name in sys.argv[1:]:
+    pos = np.load(f'pos_{name}.npy'); d = (pos - pos[0]).astype(float); W = d[-1]; L = float(np.log(float(pos.mean()) / (2 * np.pi)))
+    w = np.sin(np.pi * d / W)**2; M = float((w**2).sum()); Pn = 1.02 * W
+    kmax = int(1.5 * L * Pn / (2 * np.pi)) + 10; Nm = 1 << int(np.ceil(np.log2(2 * kmax)))
+    f = finufft.nufft1d1(2 * np.pi * d / Pn, w.astype(complex), Nm, eps=1e-10)
+    k = np.arange(-Nm // 2, Nm // 2); u = 2 * np.pi * k / Pn; P2 = np.abs(f)**2 / M; du = 2 * np.pi / Pn
+    hw = 0.06
+    def weight(u0): m = (u > u0 - hw) & (u < u0 + hw); return float((P2[m] - 1.0).sum() * du / L)
+    # noise: same-width windows at random places with u-L in [3.5, 0.45 L]
+    rng = np.random.default_rng(1); noise = np.array([weight(L + x) for x in rng.uniform(4.0, 0.4 * L, 400)]); sig = float(noise.std())
+    wq = np.array([weight(L + np.log(q)) for q in Q])
+    tot = wq.sum(); cen = (wq * np.log(Q)).sum() / tot
+    top = np.argsort(-wq)[:8]
+    row = dict(name=name, L=L, noise=sig, total=float(tot), centroid=float(cen), pred_total=LAM / L**2, pred_centroid=CC,
+               top=[(int(Q[i]), float(wq[i])) for i in top], weights={int(q): float(x) for q, x in zip(Q, wq)})
+    res.append(row)
+    print(f"{name}: L={L:.2f} noise/window={sig:.1e} | sum over squarefree q<=60: {tot:.5f} (BBLM total Lambda/L^2 = {LAM/L**2:.5f}) centroid <ln q> = {cen:.3f} (BBLM C = {CC:.3f}) | top lines: " + ", ".join(f"q={q}:{x:.4f}" for q, x in row['top']))
+json.dump(res, open('lines.json', 'w'))
