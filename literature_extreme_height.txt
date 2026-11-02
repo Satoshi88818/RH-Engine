@@ -1,0 +1,100 @@
+# Literature check of the Λ lower bounds, and the window test at γ ≈ 10²⁰ – 10²¹
+
+## Summary
+
+1. **The literature check supports the framework, and corrects one thing I said.** The best Lehmer-pair lower bound is **Λ > −1.15 × 10⁻¹¹** (Saouter–Gourdon–Demichel 2011). I earlier called this "the best published lower bound". It was the best Lehmer-pair bound, but it has been **superseded since 2018 by the proof that Λ ≥ 0** (Rodgers–Tao), which uses a different method. I corrected this in three earlier READMEs.
+2. **My lemma is the leading term of the Csordas–Smith–Varga theorem** that underlies all the Lehmer-pair bounds, and the normalisation I use is the one used in the literature.
+3. **The scale of the published bounds is consistent with random-matrix statistics.** A pair as close as the one behind −1.15 × 10⁻¹¹ is expected about once per 10¹³ zeros, and my extrapolation puts the median closest pair among about 4 × 10¹³ zeros at 1.5 × 10⁻¹¹. This is an order-of-magnitude check only (details below).
+4. **At γ ≈ 1.4 × 10²⁰ and 1.4 × 10²¹ the published zeros follow the random-matrix small-gap law closely.** The deficit of close pairs seen at lower heights has essentially disappeared. This extends the tested range from ln(γ/2π) ≈ 25 to ≈ 45–47, but with only 10,000 zeros per set.
+
+None of this bears on whether any zero is off the line.
+
+## 1. What the literature says
+
+| Lower bound on Λ | Reference | Method |
+|---|---|---|
+| −50 | Csordas–Norfolk–Varga 1988 | Lehmer pairs |
+| −5 | te Riele 1991 | Lehmer pairs |
+| −4.379 × 10⁻⁶ | Csordas–Smith–Varga 1994 | Lehmer pairs, general theorem |
+| −5.895 × 10⁻⁹ | Csordas–Odlyzko–Smith–Varga 1993 | new Lehmer pair |
+| −2.63 × 10⁻⁹ (abstract: −2.7 × 10⁻⁹) | Odlyzko 2000 | pair near zero number 10²⁰ |
+| **−1.15 × 10⁻¹¹** (−1.14541 × 10⁻¹¹) | Saouter–Gourdon–Demichel 2011 | new Lehmer pair |
+| **0** | Rodgers–Tao 2018 (published 2020) | local zero statistics, no single pair |
+
+(I listed the bounds in the order of the source table, which is not strictly chronological; some of the early entries were quoted without being able to open the original papers.) The upper bound is Λ ≤ 0.22 (Polymath15).
+
+**Normalisation.** Rodgers–Tao define H₀(z) = ξ(½ + iz/2)/8, so zeros sit at z = 2γ. That is the normalisation I have used throughout, so my times t are directly comparable with the literature's Λ.
+
+**The motion of the zeros.** Newman–Wu's survey states that real zeros obey ∂ₜxₖ = 2 Σⱼ≠ₖ 1/(xₖ − xⱼ), citing Csordas–Smith–Varga 1994. This is the same law I derived from ∂ₜH = −∂ᵤᵤH.
+
+**The Csordas–Smith–Varga theorem (Theorem 12 as quoted in Newman–Wu).** For every k, Λ ≥ λₖ, where λₖ depends on the gap (x_{k+1} − xₖ) and on the tidal sum gₖ = Σⱼ≠ₖ,ₖ₊₁ [1/(xₖ − xⱼ)² + 1/(x_{k+1} − xⱼ)²]. For a close pair its leading term is **−(x_{k+1} − xₖ)²/8**. That is exactly my gap-lifetime lemma, r²/8 (with r = 2 × gap in γ). My "tidal" term is their gₖ. For a Lehmer pair of the size in Odlyzko's 2000 paper, I estimate the relative correction from gₖ at about 2 × 10⁻⁶, so r²/8 is accurate to about six digits there. (I used only the leading behaviour of the quoted formula, because the text extraction of the full expression was garbled.)
+
+**The Rodgers–Tao method** is different. They do not use a single close pair; they show that if Λ < 0 the zeros in windows [T, T + α] (1 ≪ α ≪ log T) would relax to a nearly equally spaced arrangement, which contradicts Montgomery's pair-correlation result that a positive proportion of spacings are smaller than the mean. This is the "window" viewpoint of my window test, but their argument is analytic, not a statistic.
+
+### Consistency of the published bounds with random-matrix statistics
+
+By the lemma, a bound B implies a pair with gap_γ ≈ √(2B) (r²/8 = gap²/2). Under the GUE small-gap law, the fraction of gaps with normalised size below ν is about (π²/9)ν³.
+
+| bound | implied gap (γ) | height | normalised ν | one such pair per … zeros (GUE) |
+|---|---|---|---|---|
+| Odlyzko 2000: 2.7 × 10⁻⁹ | 7.4 × 10⁻⁵ | zero # 10²⁰, γ ≈ 1.5 × 10¹⁹ | 4.9 × 10⁻⁴ | 7.5 × 10⁹ |
+| SGD 2011: 1.15 × 10⁻¹¹ | 4.8 × 10⁻⁶ | unknown to me (taken as 10²⁰ … 10²⁴) | 3.4 × 10⁻⁵ … 4.1 × 10⁻⁵ | 1.3 × 10¹³ … 2.3 × 10¹³ |
+
+My extrapolation (`README_t_of_x_test.md`) puts the median closest-pair lifetime among about 4.5 × 10¹³ zeros near 10¹³ at 1.5 × 10⁻¹¹. That is the same scale as the 2011 bound. **I could not find the exact height, gap, or number of zeros scanned for the Saouter–Gourdon–Demichel pair in the accessible sources**, so this is an order-of-magnitude consistency check, not a verification of their computation.
+
+## 2. Window test at γ ≈ 1.4 × 10²⁰ and 1.4 × 10²¹
+
+**Data.** Odlyzko's published sets of 10,000 zeros each near the 10²¹st and 10²²nd zeros (`zeros4`, `zeros5`), from the same GitHub mirror as before (its author notes the files were sanitised for encoding, values unchanged). The tables state their values are probably accurate to within 10⁻⁶, which is negligible against the gaps here (the smallest is 0.005). I used the offsets from the stated constants C without adding C (it does not fit in long double).
+
+**Sanity check of the data:** the mean gap matches the density formula 2π/ln(γ/2π): 0.14094 vs 0.14094 (zeros4) and 0.13418 vs 0.13416 (zeros5).
+
+| set | zeros | ⟨ln(γ/2π)⟩ | min ν | GUE median min ν | P | closest gap (γ) | lifetime gap²/2 observed | predicted median |
+|---|---|---|---|---|---|---|---|---|
+| zeros4 (γ ≈ 1.44 × 10²⁰) | 10,000 | 44.6 | 0.0376 | 0.0399 | 0.44 | 0.00530 | 1.40 × 10⁻⁵ | 1.58 × 10⁻⁵ |
+| zeros5 (γ ≈ 1.37 × 10²¹) | 10,000 | 46.8 | 0.0657 | 0.0399 | 0.95 | 0.00881 | 3.88 × 10⁻⁵ | 1.43 × 10⁻⁵ |
+
+**Small-gap counts, observed / expected under the GUE law:**
+
+| ν below | zeros4 | zeros5 |
+|---|---|---|
+| 0.05 | 1 / 1.4 | 0 / 1.4 |
+| 0.1 | 10 / 10.9 | 7 / 10.9 |
+| 0.2 | 83 / 85.0 | 79 / 85.0 |
+| 0.3 | 257 / 275.0 | 266 / 275.0 |
+
+**Window-by-window** (windows of N₀ consecutive zeros; u = N₀F(ν_min) should be Exp(1); N₀ = 1000 gives only 9 windows, so it is not tested):
+
+| set | N₀ | windows | KS p | mean u | coverage of 5% quantile (expect 0.95) | coverage of 1% quantile (expect 0.99) |
+|---|---|---|---|---|---|---|
+| zeros4 | 100 | 99 | 0.62 | 1.03 | 0.98 | 0.99 |
+| zeros4 | 300 | 33 | 0.51 | 1.31 | 0.97 | 1.00 |
+| zeros5 | 100 | 99 | 0.81 | 1.01 | 0.99 | 1.00 |
+| zeros5 | 300 | 33 | 0.46 | 1.11 | 1.00 | 1.00 |
+
+**Reading this**
+- At ln(γ/2π) ≈ 45–47 the observed small-gap counts agree with the GUE law within what 10,000 zeros can resolve: the ν < 0.1 and ν < 0.2 counts are within about one standard deviation, and ν < 0.3 is 7% (zeros4) and 3% (zeros5) below. At heights 10³–10⁶ the same ratio was 0.5–0.85. This is consistent with the known convergence of zeta zeros to GUE as the height grows (finite-height corrections of order 1/ln²γ).
+- The window statistics pass (KS p between 0.46 and 0.81, coverage 0.97–1.00), but these are small samples (99 and 33 windows). Coverage is slightly above nominal, which is not significant here.
+- The closest pair in `zeros5` is wider than expected (P = 0.95), and in `zeros4` close to the median (P = 0.44). With one extreme-value sample per set, neither is informative.
+
+## 3. What this changes
+
+- **Supports the key assumption of the x^(−2/3) extrapolation** (that the random-matrix small-gap law keeps holding as the height grows) at two further heights, and shows the lower-height deficit of close pairs fading. It does not test the law at the 10¹³ – 10²² zero-window sizes the extrapolation needs; those require scanning that no published table covers.
+- **Puts my extrapolation in context.** The literature's lower bounds on Λ are, in effect, record-setting close pairs found by scanning ~10¹⁰ – 10¹³ zeros, which is the same extreme-value picture. Since the 2018 result Λ ≥ 0, their role is historical, and the remaining open direction is the upper side (Λ ≤ 0, i.e. RH), which none of this addresses.
+
+## 4. Limitations
+
+- Odlyzko's data come through a mirror; I did not compare with the originals.
+- Only 10,000 zeros per height, so windows are small and the closest-pair test is one sample each.
+- For the 2011 bound I could not retrieve the pair's height or the scanning effort, so the table row is an estimate over a range of heights.
+- The Csordas–Smith–Varga formula was used only at leading order.
+- The bound table mixes values I read in different papers' tables (Rodgers–Tao's table is not in chronological order); the 2011 and 2000 values were confirmed in several independent sources, the earlier ones only in that one table.
+
+## 5. Files and reproduce
+
+`extreme_heights.py`, `extreme_heights.json`, `window_test.py` (refactored so window statistics can be run from precomputed gaps; results for the earlier datasets are unchanged). Needs `odlyzko/zeros4` and `odlyzko/zeros5` from the mirror `nightbay/odzeros`.
+
+```bash
+python extreme_heights.py
+```
+
+**Corrections made to earlier files** (the "best published bound" wording): `README_rs_scaling.md`, `README_t_of_x_test.md`, `README_harness.md`.
