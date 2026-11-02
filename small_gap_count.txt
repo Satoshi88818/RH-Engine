@@ -1,0 +1,39 @@
+cd /home/squire && cat > bblm_compare.py <<'EOF'
+import json, numpy as np
+from scipy.interpolate import CubicSpline
+import window_test as W
+LD = np.longdouble
+T = np.load('bblm_tables.npz'); xs, F0t, G1t = T['xs'], T['F0'], T['G1']
+sF0 = CubicSpline(np.concatenate([[0], xs]), np.concatenate([[0], F0t])); sG1 = CubicSpline(np.concatenate([[0], xs]), np.concatenate([[0], G1t]))
+LAM, CC = 1.5731510713, 1.4721067971
+def predict(x, L):
+    Ne = L / np.sqrt(12 * LAM); a = 1 + CC / L
+    return sF0(x) + sG1(np.minimum(a * x, xs[-1])) / (a * Ne**2), Ne, a
+def datasets():
+    tab = np.loadtxt('odlyzko/zeros6')
+    for lo, hi in [(1e3, 1e4), (1e4, 1e5), (1e5, 1e6), (1e6, 1.2e6)]:
+        nu, g, L = W.norm_gaps(tab[(tab >= lo) & (tab < hi)]); yield f"zeros6 [{lo:.0e},{min(hi,1.13e6):.2g})", nu, L
+    for f, C, name in [("odlyzko/zeros3", 267653395647, "zeros3 (~2.7e11)"), ("odlyzko/zeros4", 144176897509546973000, "zeros4 (~1.4e20)"), ("odlyzko/zeros5", 1370919909931995300000, "zeros5 (~1.4e21)")]:
+        off = np.loadtxt(f, skiprows=7 if f.endswith('3') else 9); g = np.diff(off); mid = 0.5 * (off[1:] + off[:-1]) + float(C)
+        L = np.log(mid / (2 * np.pi)); yield name, g * L / (2 * np.pi), L
+    for n in ("1e7", "1e8", "1e9", "1e10", "1e11"):
+        nu, g, L = W.norm_gaps(np.load(f"pos_{n}.npy")); yield f"mine {n}", nu, L
+out = []; X = (0.1, 0.2, 0.3, 0.5)
+print("dataset | N | <L> | N_e | alpha | for x in", X, ": obs | GUE exp | BBLM exp | z_GUE | z_BBLM")
+for name, nu, L in datasets():
+    row = dict(name=name, N=len(nu), L=float(L.mean()), Ne=float(L.mean() / np.sqrt(12 * LAM)), alpha=float(1 + CC / L.mean()), x={})
+    for x in X:
+        obs = int((nu < x).sum()); g = float(sF0(x)) * len(nu)
+        # per-gap prediction (each gap has its own height)
+        pk = np.array([predict(x, Lj)[0] for Lj in L[::max(1, len(L) // 20000)]]).mean() * len(nu)
+        zg = (obs - g) / np.sqrt(g); zb = (obs - pk) / np.sqrt(pk)
+        row['x'][str(x)] = dict(obs=obs, gue=g, bblm=float(pk), z_gue=float(zg), z_bblm=float(zb))
+    out.append(row)
+    print(f"{name:22s} N={row['N']:8d} L={row['L']:5.1f} Ne={row['Ne']:5.2f} a={row['alpha']:.3f} | " + " | ".join(f"x={x}: {v['obs']}/{v['gue']:.0f}/{v['bblm']:.0f} z={v['z_gue']:+.1f}/{v['z_bblm']:+.1f}" for x, v in row['x'].items()))
+json.dump(out, open('bblm_results.json', 'w'), indent=1)
+EOF
+python3 bblm_compare.py
+
+Response:
+
+{"returncode":0,"stdout":"dataset | N | <L> | N_e | alpha | for x in (0.1, 0.2, 0.3, 0.5) : obs | GUE exp | BBLM exp | z_GUE | z_BBLM\nzeros6 [1e+03,1e+04)   N=    9492 L=  6.7 Ne= 1.54 a=1.220 | x=0.1: 5/10/4 z=-1.7/+0.6 | x=0.2: 42/81/33 z=-4.3/+1.7 | x=0.3: 157/262/122 z=-6.5/+3.2 | x=0.5: 850/1073/680 z=-6.8/+6.5\nzeros6 [1e+04,1e+05)   N=  127926 L=  9.0 Ne= 2.06 a=1.164 | x=0.1: 96/139/95 z=-3.7/+0.1 | x=0.2: 796/1088/762 z=-8.8/+1.2 | x=0.3: 2762/3530/2570 z=-12.9/+3.8 | x=0.5: 12504/14463/11626 z=-16.3/+8.1\nzeros6 [1e+05,1e+06)   N= 1609076 L= 11.3 Ne= 2.59 a=1.131 | x=0.1: 1490/1751/1420 z=-6.2/+1.9 | x=0.2: 11580/13679/11228 z=-17.9/+3.3 | x=0.3: 38390/44403/37124 z=-28.5/+6.6 | x=0.5: 164471/181915/159804 z=-40.9/+11.7\nzeros6 [1e+06,1.1e+06) N=  253905 L= 12.0 Ne= 2.77 a=1.122 | x=0.1: 233/276/232 z=-2.6/+0.1 | x=0.2: 1861/2159/1828 z=-6.4/+0.8 | x=0.3: 6142/7007/6023 z=-10.3/+1.5 | x=0.5: 26401/28705/25694 z=-13.6/+4.4\nzeros3 (~2.7e11)       N=    9999 L= 24.5 Ne= 5.63 a=1.060 | x=0.1: 6/11/10 z=-1.5/-1.4 | x=0.2: 83/85/82 z=-0.2/+0.1 | x=0.3: 262/276/267 z=-0.8/-0.3 | x=0.5: 1112/1130/1103 z=-0.5/+0.3\nzeros4 (~1.4e20)       N=    9999 L= 44.6 Ne=10.26 a=1.033 | x=0.1: 10/11/11 z=-0.3/-0.2 | x=0.2: 83/85/84 z=-0.2/-0.1 | x=0.3: 257/276/273 z=-1.1/-1.0 | x=0.5: 1173/1130/1122 z=+1.3/+1.5\nzeros5 (~1.4e21)       N=    9999 L= 46.8 Ne=10.78 a=1.031 | x=0.1: 7/11/11 z=-1.2/-1.2 | x=0.2: 79/85/84 z=-0.7/-0.6 | x=0.3: 266/276/274 z=-0.6/-0.5 | x=0.5: 1124/1130/1123 z=-0.2/+0.0\nmine 1e7               N=  500049 L= 14.3 Ne= 3.29 a=1.103 | x=0.1: 515/544/484 z=-1.2/+1.4 | x=0.2: 3874/4251/3803 z=-5.8/+1.2 | x=0.3: 12590/13799/12460 z=-10.3/+1.2 | x=0.5: 52857/56533/52374 z=-15.5/+2.1\nmine 1e8               N=  500030 L= 16.6 Ne= 3.82 a=1.089 | x=0.1: 481/544/500 z=-2.7/-0.9 | x=0.2: 3846/4251/3926 z=-6.2/-1.3 | x=0.3: 12947/13799/12824 z=-7.2/+1.1 | x=0.5: 53948/56531/53472 z=-10.9/+2.1\nmine 1e9               N=  500001 L= 18.9 Ne= 4.35 a=1.078 | x=0.1: 499/544/511 z=-1.9/-0.5 | x=0.2: 4072/4251/4005 z=-2.7/+1.1 | x=0.3: 13025/13798/13058 z=-6.6/-0.3 | x=0.5: 54422/56528/54187 z=-8.9/+1.0\nmine 1e10              N=  300122 L= 21.2 Ne= 4.88 a=1.069 | x=0.1: 312/327/311 z=-0.8/+0.1 | x=0.2: 2507/2551/2436 z=-0.9/+1.4 | x=0.3: 7993/8282/7934 z=-3.2/+0.7 | x=0.5: 32844/33930/32821 z=-5.9/+0.1\nmine 1e11              N=  150105 L= 23.5 Ne= 5.41 a=1.063 | x=0.1: 141/163/157 z=-1.7/-1.3 | x=0.2: 1174/1276/1230 z=-2.9/-1.6 | x=0.3: 3967/4142/4002 z=-2.7/-0.6 | x=0.5: 16492/16970/16521 z=-3.7/-0.2\n","stderr":""}
