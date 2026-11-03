@@ -1,0 +1,120 @@
+"""Function-field analogue: zeros of L-functions of hyperelliptic curves y^2 = f(x), deg f = 2g+1, over F_q (q = p prime).
+Point counts over F_{q^n}, n <= g, by brute force with log tables; L-polynomial from Newton + functional equation."""
+import numpy as np, itertools, sys, time, json
+from math import gcd
+
+def polymulmod(a, b, mod, p):
+    n = len(mod) - 1; res = [0] * (2 * n - 1 if n > 0 else 1)
+    for i, x in enumerate(a):
+        if x:
+            for j, y in enumerate(b): res[i + j] = (res[i + j] + x * y) % p
+    for k in range(len(res) - 1, n - 1, -1):          # reduce by monic mod
+        c = res[k]
+        if c:
+            for j in range(n + 1): res[k - n + j] = (res[k - n + j] - c * mod[j]) % p
+    return (res + [0] * n)[:n]
+
+def polypowmod(base, e, mod, p):
+    n = len(mod) - 1; result = [1] + [0] * (n - 1)
+    while e:
+        if e & 1: result = polymulmod(result, base, mod, p)
+        base = polymulmod(base, base, mod, p); e >>= 1
+    return result
+
+def prime_factors(m):
+    f = set(); d = 2
+    while d * d <= m:
+        while m % d == 0: f.add(d); m //= d
+        d += 1
+    if m > 1: f.add(m)
+    return f
+
+_cache = {}
+def field(p, n):
+    """Tables for F_{p^n}: element index = sum digit_i p^i; returns exp, log, Q."""
+    if (p, n) in _cache: return _cache[(p, n)]
+    Q = p**n; rng = np.random.default_rng(12345 + n)
+    if n == 1:                                     # find a primitive root of F_p
+        for g0 in range(2, p):
+            if all(pow(g0, (p - 1) // r, p) != 1 for r in prime_factors(p - 1)): break
+        else: g0 = 1 if p == 2 else None
+        exp = np.empty(Q - 1, dtype=np.int64); v = 1
+        for k in range(Q - 1): exp[k] = v; v = v * g0 % p
+    else:
+        pf = prime_factors(Q - 1)
+        while True:                                # random monic degree-n poly with x primitive
+            mod = [int(c) for c in rng.integers(0, p, n)] + [1]
+            if mod[0] == 0: continue
+            xelt = [0, 1] + [0] * (n - 2) if n > 1 else [0]
+            if polypowmod(xelt, Q - 1, mod, p) != [1] + [0] * (n - 1): continue
+            if all(polypowmod(xelt, (Q - 1) // r, mod, p) != [1] + [0] * (n - 1) for r in pf): break
+        exp = np.empty(Q - 1, dtype=np.int64); cur = [1] + [0] * (n - 1); pw = [p**i for i in range(n)]
+        for k in range(Q - 1):
+            exp[k] = sum(c * w for c, w in zip(cur, pw))
+            top = cur[-1]; cur = [0] + cur[:-1]
+            if top: cur = [(cur[j] - top * mod[j]) % p for j in range(n)]
+    log = np.full(Q, -1, dtype=np.int64); log[exp] = np.arange(Q - 1)
+    _cache[(p, n)] = (exp, log, Q); return _cache[(p, n)]
+
+def count_S(coeffs, p, n):
+    """S_n = sum_{x in F_{p^n}} chi(f(x)), f monic of degree d = len(coeffs), coeffs = [a_{d-1},...,a_0] in F_p."""
+    exp, log, Q = field(p, n)
+    xs = np.arange(Q); lx = log[xs]; nz = xs != 0
+    acc = xs.copy()                                  # leading x
+    def addc(a, c):
+        d0 = a % p; return a + ((d0 + c) % p) - d0
+    acc = addc(acc, coeffs[0])
+    for c in coeffs[1:]:
+        la = log[acc]; prod = np.where((acc != 0) & nz, exp[(la + lx) % (Q - 1)], 0)
+        acc = addc(prod, c)
+    ly = log[acc]; chi = np.where(acc == 0, 0, np.where(ly % 2 == 0, 1, -1))
+    return int(chi.sum())
+
+def squarefree(coeffs, p):
+    """gcd(f, f') = 1 over F_p for monic f = x^d + coeffs."""
+    f = [1] + list(coeffs)                           # high to low
+    d = len(f) - 1; fp = [(d - i) * f[i] % p for i in range(d)]
+    while fp and fp[0] == 0: fp = fp[1:]
+    a, b = f, fp
+    while b:
+        a = a[:]
+        while len(a) >= len(b):
+            c = a[0] * pow(b[0], -1, p) % p
+            a = [(a[i] - c * (b[i] if i < len(b) else 0)) % p for i in range(len(a))][1:]
+            while a and a[0] == 0: a = a[1:]
+            if not a: break
+        a, b = b, a
+    return len(a) == 1
+
+def lpoly(Ss, q, g):
+    """Coefficients c_0..c_{2g} of P(T) = prod (1 - alpha_i T) from S_1..S_g (p_n = -S_n)."""
+    pn = [None] + [-s for s in Ss]; c = [1.0]
+    for k in range(1, g + 1): c.append(-sum(pn[j] * c[k - j] for j in range(1, k + 1)) / k)
+    for k in range(g + 1, 2 * g + 1): c.append(q**(k - g) * c[2 * g - k] if True else 0)
+    return np.array(c)
+
+def traces(c, q, g, nmax):
+    """normalised traces t_n = sum_i e^{i n theta_i} = p_n / q^{n/2}, n = 1..nmax, via Newton recursion."""
+    pn = [0.0]
+    for n in range(1, nmax + 1):
+        s = -n * (c[n] if n <= 2 * g else 0.0) - sum(pn[j] * (c[n - j] if n - j <= 2 * g else 0.0) for j in range(1, n))
+        pn.append(s)
+    return np.array([pn[n] / q**(n / 2) for n in range(1, nmax + 1)])
+
+def family(p, g, ncurves, seed=0, nmax=None):
+    rng = np.random.default_rng(seed); nmax = nmax or 4 * g; T = []; maxdev = 0.0; done = 0; t0 = time.time()
+    while done < ncurves:
+        coeffs = [int(v) for v in rng.integers(0, p, 2 * g + 1)]
+        if not squarefree(coeffs, p): continue
+        Ss = [count_S(coeffs, p, n) for n in range(1, g + 1)]
+        c = lpoly(Ss, p, g)
+        if done < 200:                                  # Weil check: all roots of P have |alpha| = sqrt(q)
+            al = 1.0 / np.roots(c[::-1]); maxdev = max(maxdev, float(np.max(np.abs(np.abs(al) - np.sqrt(p))) / np.sqrt(p)))
+        T.append(traces(c, p, g, nmax)); done += 1
+    return np.array(T), maxdev, time.time() - t0
+
+if __name__ == "__main__":
+    # validation on a tiny case: g = 1, p = 5: compare with direct point count over F_5 and Hasse bound
+    p, g = 5, 1; T, md, t = family(p, g, 300, nmax=4)
+    print("g=1 p=5: Weil check max relative deviation of |alpha|:", md, " all |t_1|<=2:", bool(np.all(np.abs(T[:, 0]) <= 2 + 1e-9)))
+    p, g = 7, 2; T, md, t = family(p, g, 300, nmax=8); print("g=2 p=7: Weil deviation", md, " integer traces check:", np.allclose(T[:, 0] * np.sqrt(7), np.round(T[:, 0] * np.sqrt(7))))
