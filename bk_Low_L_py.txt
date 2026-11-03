@@ -1,0 +1,50 @@
+"""Full numeric Bogomolny-Keating R2(s; L) at small s on a grid of heights, then close-pair counts vs data (all orders in 1/L)."""
+import json, numpy as np
+from scipy.interpolate import RegularGridInterpolator, CubicSpline
+import bk_pred as BK
+import window_test as W
+LGRID = np.arange(6.0, 25.01, 1.0); SGRID = np.arange(0.02, 0.5201, 0.02)
+R = np.empty((len(LGRID), len(SGRID)))
+for i, L in enumerate(LGRID):
+    rho = L / (2 * np.pi); eps = SGRID / rho
+    f1, f2 = BK.zeta_parts(eps); A = BK.euler_A(eps); P2 = BK.prime_sum2(eps)
+    r_diag = -(1 / (4 * np.pi**2)) * (-2 * f2 + P2); r_off = 2 * np.real((1 / (4 * np.pi**2)) * f1 * np.exp(1j * 2 * np.pi * rho * eps) * A)
+    R[i] = 1 + (r_diag + r_off) / rho**2
+np.savez('bk_R2_table.npz', L=LGRID, s=SGRID, R2=R)
+GUE = lambda s: 1 - np.sinc(s)**2
+sfull = np.concatenate([[0.0], SGRID]); Rfull = np.concatenate([np.zeros((len(LGRID), 1)), R], axis=1)
+cum = np.concatenate([np.zeros((len(LGRID), 1)), np.cumsum(0.5 * (Rfull[:, 1:] + Rfull[:, :-1]) * np.diff(sfull)[None, :], axis=1)], axis=1)
+Fi = RegularGridInterpolator((LGRID, sfull), cum)
+gcum = np.concatenate([[0.0], np.cumsum(0.5 * (GUE(sfull[1:]) + GUE(sfull[:-1])) * np.diff(sfull))])
+T = np.load('bblm_tables.npz'); F0 = CubicSpline(np.concatenate([[0], T['xs']]), np.concatenate([[0], T['F0']]))
+def P_bk(x, L):                       # probability a gap is below x: determinant GUE CDF times the numeric BK/GUE ratio
+    j = np.argmin(abs(sfull - x)); ratio = Fi(np.column_stack([np.clip(L, LGRID[0], LGRID[-1]), np.full_like(L, sfull[j])])) / gcum[j]
+    return F0(x) * ratio
+def datasets():
+    tab = np.loadtxt('odlyzko/zeros6')
+    for lo, hi in [(1e3, 1e4), (1e4, 1e5), (1e5, 1e6), (1e6, 1.2e6)]:
+        nu, g, L = W.norm_gaps(tab[(tab >= lo) & (tab < hi)]); yield f"zeros6 [{lo:.0e},{min(hi,1.13e6):.2g})", nu, L
+    for f, C, name in [("odlyzko/zeros3", 267653395647, "zeros3 (~2.7e11)"), ("odlyzko/zeros4", 144176897509546973000, "zeros4 (~1.4e20)"), ("odlyzko/zeros5", 1370919909931995300000, "zeros5 (~1.4e21)")]:
+        off = np.loadtxt(f, skiprows=7 if f.endswith('3') else 9); g = np.diff(off); mid = 0.5 * (off[1:] + off[:-1]) + float(C)
+        L = np.log(mid / (2 * np.pi)); yield name, g * L / (2 * np.pi), L
+    for n in ("1e7", "1e8", "1e9", "1e10", "1e11"):
+        nu, g, L = W.norm_gaps(np.load(f"pos_{n}.npy")); yield f"mine {n}", nu, L
+B = {b['name']: b for b in json.load(open('bblm_results.json'))}
+X = (0.1, 0.2, 0.3, 0.5); out = []; zs = {k: {x: [] for x in X} for k in ('gue', 'bblm', 'bk')}
+print("dataset | <L> | x: obs | GUE | BBLM | BK-numeric | z_GUE z_BBLM z_BK")
+for name, nu, L in datasets():
+    row = dict(name=name, L=float(L.mean()), x={})
+    for x in X:
+        obs = int((nu < x).sum()); b = B[next(k for k in B if k.startswith(name.split(' (')[0].split(' [')[0]) and (k == name or name.startswith('zeros6') == k.startswith('zeros6')) and abs(B[k]['L'] - L.mean()) < 0.5)]['x'][str(x)]
+        Ls = L[::max(1, len(L) // 20000)]; bk = float(P_bk(x, Ls).mean() * len(nu))
+        z = lambda e: (obs - e) / np.sqrt(e)
+        row['x'][str(x)] = dict(obs=obs, gue=b['gue'], bblm=b['bblm'], bk=bk, z_gue=z(b['gue']), z_bblm=z(b['bblm']), z_bk=z(bk))
+        if row['L'] > 0: 
+            zs['gue'][x].append(z(b['gue'])); zs['bblm'][x].append(z(b['bblm'])); zs['bk'][x].append(z(bk))
+    out.append(row)
+    print(f"{name:22s} L={row['L']:5.1f} | " + " | ".join(f"x={x}: {v['obs']}/{v['gue']:.0f}/{v['bblm']:.0f}/{v['bk']:.0f} z={v['z_gue']:+.1f}/{v['z_bblm']:+.1f}/{v['z_bk']:+.1f}" for x, v in row['x'].items()))
+json.dump(out, open('bk_lowL.json', 'w'), indent=1)
+for k in zs: print(k, "rms z over all datasets and x:", float(np.sqrt(np.mean(np.concatenate([zs[k][x] for x in X])**2))))
+lo = [r for r in out if r['L'] < 13]; hi = [r for r in out if r['L'] >= 13]
+for lab, rows in (("L<13 (N_eff<3)", lo), ("L>=13", hi)):
+    print(lab, {k: round(float(np.sqrt(np.mean([r['x'][str(x)]['z_' + k]**2 for r in rows for x in X]))), 2) for k in ('gue', 'bblm', 'bk')})
