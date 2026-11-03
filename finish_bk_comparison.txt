@@ -1,0 +1,11 @@
+cd /home/squire && python3 bk_compare.py 2>&1 | grep -v Warning | sed -n '/^1e10/,$p'; python3 - <<'EOF'
+import json, numpy as np
+r=json.load(open('/home/squire/bk_compare.json'))
+print("\nsummary line weights measured/BK numeric/analytic:")
+for n in r:
+    for q,w in r[n]['windows'].items(): print(n,q,round(w['measured'],5),round(w['predicted'],5),round(w['analytic'],5))
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"1e10: L=21.19\n  tau 0.3-0.95: n=32 stat err 0.026 | rms(meas - BK) 0.011 chi2/bin 0.38 | rms(meas - min(tau,1)) 0.010 chi2/bin 0.38\n  tau 0.95-1.3: n=18 stat err 0.094 | rms(meas - BK) 0.022 chi2/bin 0.20 | rms(meas - min(tau,1)) 0.048 chi2/bin 0.33\n  tau 1.3-1.58: n=14 stat err 0.021 | rms(meas - BK) 0.022 chi2/bin 1.06 | rms(meas - min(tau,1)) 0.022 chi2/bin 1.05\n  fine structure (0.004 bins, tau 1.0-1.3): correlation measured vs BK = 0.373\n  line q=2: excess weight in +-0.009 window: measured 0.00296  BK numeric 0.00238  analytic g/L^2 0.00445\n  line q=3: excess weight in +-0.009 window: measured -0.00015  BK numeric 0.00034  analytic g/L^2 0.00167\n  line q=6: excess weight in +-0.009 window: measured 0.00211  BK numeric 0.00201  analytic g/L^2 0.00334\n  line q=10: excess weight in +-0.009 window: measured 0.00017  BK numeric 0.00024  analytic g/L^2 0.00139\n  small-s suppression (R2/GUE, s<0.2): BK 0.966; BBLM 0.955; observed small-gap ratio (x=0.2) 0.983\n\nsummary line weights measured/BK numeric/analytic:\n1e8 2 0.00425 0.00392 0.00728\n1e8 3 0.00051 0.0006 0.00273\n1e8 6 0.00236 0.00335 0.00546\n1e8 10 0.0007 0.00049 0.00227\n1e9 2 0.00269 0.00319 0.0056\n1e9 3 0.00039 0.00025 0.0021\n1e9 6 0.00247 0.00275 0.0042\n1e9 10 4e-05 8e-05 0.00175\n1e10 2 0.00296 0.00238 0.00445\n1e10 3 -0.00015 0.00034 0.00167\n1e10 6 0.00211 0.00201 0.00334\n1e10 10 0.00017 0.00024 0.00139\n","stderr":""}
