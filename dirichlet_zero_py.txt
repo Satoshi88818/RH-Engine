@@ -1,0 +1,28 @@
+"""Zeros of L(s,chi) for real primitive characters chi (q = 3, 4, 5, 8): sign changes of the real function Z(t) = Re(e^{i theta} L(1/2+it))."""
+import sys, time, json
+import numpy as np, mpmath as mp
+mp.mp.dps = 15
+CH = {  # name: (q, a, chi(0..q-1))   a = 0 even, 1 odd
+    "chi_-3": (3, 1, [0, 1, -1]),
+    "chi_-4": (4, 1, [0, 1, 0, -1]),
+    "chi_5": (5, 0, [0, 1, -1, -1, 1]),
+    "chi_8": (8, 0, [0, 1, 0, -1, 0, -1, 0, 1]),
+}
+def Z(name, t):
+    q, a, chi = CH[name]; s = mp.mpc(0.5, t)
+    L = mp.dirichlet(s, chi)
+    theta = (t / 2) * mp.log(q / mp.pi) + mp.im(mp.loggamma((mp.mpf(0.5) + a + 1j * t) / 2))
+    v = L * mp.exp(1j * theta)
+    return float(mp.re(v)), float(mp.im(v))
+def run(name, t0, t1, h):
+    ts = np.arange(t0, t1, h); z = np.empty(len(ts)); im = 0.0
+    for i, t in enumerate(ts):
+        z[i], ii = Z(name, float(t)); im = max(im, abs(ii))
+    return ts, z, im
+if __name__ == "__main__":
+    name = sys.argv[1]; t0, t1, h = float(sys.argv[2]), float(sys.argv[3]), float(sys.argv[4])
+    t00 = time.time(); ts, z, im = run(name, t0, t1, h)
+    np.savez(f'dz_{name}.npz', ts=ts, z=z)
+    s = np.sign(z); idx = np.nonzero(s[:-1] * s[1:] < 0)[0]
+    q = CH[name][0]; Nexp = (t1 / (2 * np.pi)) * np.log(q * t1 / (2 * np.pi * np.e)) - (t0 / (2 * np.pi)) * np.log(q * t0 / (2 * np.pi * np.e))
+    print(f"{name}: {len(ts)} samples in {time.time()-t00:.0f}s, max|Im| of rotated L = {im:.1e}, sign changes {len(idx)}, expected ~{Nexp:.0f}", flush=True)
