@@ -1,0 +1,42 @@
+"""Character-adapted Bogomolny-Keating pair correlation for zeros of L(s,chi), chi real primitive of conductor q.
+Derived from the ratios-conjecture recipe (see README):
+  zeta -> zeta_q = zeta * prod_{p|q} (1 - p^-s),  Euler product / prime sums over p not dividing q,  rho = ln(q t/2pi)/(2 pi),
+  off-diagonal term carries 1/c_q^2 with c_q = prod_{p|q}(1 - 1/p) (residue of zeta_q at 1).
+ r2 = rho^2 + (1/2pi^2) Re[(Zq'/Zq)'(1+i eps) + B_q(i eps)] + (1/4pi^2) c_q^-2 |zeta_q(1+i eps)|^2 e^{i 2 pi rho eps} A_q(eps) + c.c."""
+import numpy as np, mpmath as mp
+mp.mp.dps = 20
+pr = np.load('primes_2e8.npy'); P_A0 = pr[pr <= 200000].astype(float); P_D0 = pr[pr <= 10000].astype(float)
+PRIME_FACTORS = {1: [], 3: [3], 4: [2], 5: [5], 8: [2]}
+def parts(eps, q, chunk=300, variant='full'):
+    bad = PRIME_FACTORS[q]
+    excl = bad if variant in ('full', 'B') else []          # remove bad primes from Euler product / prime sums?
+    PA = P_A0[~np.isin(P_A0, excl)]; PD = P_D0[~np.isin(P_D0, excl)]; lnA = np.log(PA); lnD = np.log(PD)
+    zq = bad if variant in ('full', 'A') else []              # use zeta_q (with 1/c_q^2) instead of zeta?
+    cq = float(np.prod([1 - 1.0 / p for p in zq])) if zq else 1.0
+    f1 = np.empty(len(eps)); f2 = np.empty(len(eps))
+    for i, e in enumerate(eps):
+        s = mp.mpc(1, float(e)); z0 = mp.zeta(s); z1 = mp.zeta(s, derivative=1); z2 = mp.zeta(s, derivative=2)
+        eul = mp.mpf(1); corr = mp.mpf(0)
+        for p in zq:
+            eul *= abs(1 - mp.mpf(p)**(-s))**2
+            corr += mp.re(-(mp.log(p))**2 * mp.mpf(p)**s / (mp.mpf(p)**s - 1)**2)
+        f1[i] = float(abs(z0)**2 * eul) / cq**2; f2[i] = float(mp.re(z2 / z0 - (z1 / z0)**2) + corr)
+    A = np.empty(len(eps), dtype=complex); P2 = np.zeros(len(eps))
+    for a in range(0, len(eps), chunk):
+        e = eps[a:a + chunk, None]; pe = np.exp(1j * e * lnA[None, :])
+        A[a:a + chunk] = np.prod(1 - (1 - pe)**2 / (PA[None, :] - 1)**2, axis=1)
+    for r in range(2, 15):
+        w = (r - 1) * lnD**2 / PD**r
+        for a in range(0, len(eps), chunk): P2[a:a + chunk] += (np.cos(eps[a:a + chunk, None] * r * lnD[None, :]) * w[None, :]).sum(axis=1)
+    return f1, f2, A, 2 * P2
+def R2(L, s, q, variant='full'):
+    rho = L / (2 * np.pi); eps = s / rho; f1, f2, A, P2 = parts(eps, q, variant=variant)
+    r_diag = -(1 / (4 * np.pi**2)) * (-2 * f2 + P2); r_off = 2 * np.real((1 / (4 * np.pi**2)) * f1 * np.exp(1j * 2 * np.pi * rho * eps) * A)
+    return 1 + (r_diag + r_off) / rho**2
+if __name__ == "__main__":
+    # regression: q = 1 must reproduce the zeta table
+    old = np.load('bk_R2_table.npz'); s = old['s'][:12]; L = 10.0; i = int(np.argmin(abs(old['L'] - L)))
+    new = R2(L, s, 1); print("q=1 vs stored zeta BK at L=10: max |difference| =", float(np.max(np.abs(new - old['R2'][i][:12]))))
+    # pole cancellation for each conductor: R2(s) / s^2 should be finite and positive as s -> 0
+    for q in (1, 3, 4, 5, 8):
+        v = R2(5.5, np.array([0.02, 0.05, 0.1]), q); print(f"q={q}: R2(0.02,0.05,0.1) at L=5.5 =", np.round(v, 5), " R2/(pi^2/3 s^2) =", np.round(v / (np.pi**2 / 3 * np.array([0.02, 0.05, 0.1])**2), 3))
