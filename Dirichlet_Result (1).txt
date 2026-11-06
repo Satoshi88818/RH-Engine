@@ -1,0 +1,79 @@
+# Do the zeta results carry over to other L-functions?
+
+## Summary
+
+I computed the zeros of four real Dirichlet L-functions, L(s, χ) for χ₋₃, χ₋₄, χ₅ and χ₈, up to height t = 700 (2,344 zeros in total: 568, 646, 537 and 593, each matching the expected count to within one). Three things carry over, and one does not.
+
+1. **The explicit-formula peaks carry over, with the character.** The Fourier transform of the zeros has peaks at u = log n of height χ(n)Λ(n)/(2π√n), with the sign of χ(n): the measured ratio is 0.9995–1.0001 for all 61 prime powers with χ(n) ≠ 0. At prime powers with χ(n) = 0 (powers of 2 for q = 4, 8; of 3 for q = 3; of 5 for q = 5) there is no peak (|S| ≤ 0.04 against a typical peak of 30).
+2. **The ramp carries over.** The form factor equals the prime-power sum ΣΛ(n)²χ(n)²/n for τ < 0.95 (for example 0.04 / 0.04, 0.40 / 0.40, 0.37 / 0.37, 0.50 / 0.49 for χ₋₃), and then stops growing: its mean over 1.25 < τ < 1.7 is 0.96–1.13 for the four characters, against a prime sum that would reach 1.65.
+3. **The strong low-height deficit of close pairs carries over.** At ln(qt/2π) ≈ 5.2–6.1 the number of gaps with ν < 0.5 is 0.57 of the random-matrix count (141 against 247, z = −6.7).
+4. **The zeta formula does not carry over unchanged.** The full zeta BK function, evaluated at the same ln(qt/2π), predicts 180 close pairs (ν < 0.5), and the data have 141 (z = −2.9); all four characters lie below it (ratios 0.65–0.88). The zeta formula explains about 63% of the deficit. A control shows this is not a failure of the formula at low height: for the zeta zeros at ln(γ/2π) = 5.4–5.9 the same formula predicts 143.5 and the observed count is 147 (z = +0.3). So the character changes the finite-height correction, as the arithmetic (the Euler product and the prime-pair term) would suggest.
+
+This is exploratory: the samples are small (about 2,200 gaps, heights below 700), and I did not derive the formula adapted to characters.
+
+## 1. Method
+
+For real primitive χ of conductor q with parity a (a = 0 even, 1 odd), Λ(1/2 + it) = (q/π)^{(1/2+it+a)/2} Γ((1/2+it+a)/2) L(1/2+it, χ) is real, so the zeros are the sign changes of Z(t) = Re(e^{iθ(t)} L(1/2+it, χ)), with θ the phase of the prefactor. I evaluated L through Hurwitz zeta functions (`mpmath.dirichlet`) on a grid of step 0.07 from t = 1 to 700, found zeros as sign changes with a cubic-spline root finder, and re-sampled finely wherever two sign changes were adjacent or a near-miss extremum suggested a close pair (one region in total).
+
+**Checks.** The imaginary part of the rotated L is 10⁻¹² or smaller (so Z really is real), and the zero counts match the smooth count (T/2π) ln(qT/2πe): 568 / 568, 646 / 645, 537 / 536, 593 / 593.
+
+**Normalisation.** The mean density at height t is ln(qt/2π)/2π, so ν = gap × ln(qt/2π)/2π and L = ln(qt/2π). I used gaps with midpoint t ≥ 80.
+
+## 2. Results
+
+**A. Peaks at u = log n, with sign** (zeros with t > 100, Hann window; S/(−A) with A = χ(n)Λ(n)/(2π√n) · ∫w):
+
+| character | zeros | expected | prime powers tested | mean S/(−A) ± std |
+|---|---|---|---|---|
+| χ₋₄ (q = 4, odd) | 568 | 568 | 14 | 0.9998 ± 0.0006 |
+| χ₈ (q = 8, even) | 646 | 645 | 14 | 1.0001 ± 0.0002 |
+| χ₋₃ (q = 3, odd) | 537 | 536 | 16 | 0.9995 ± 0.0014 |
+| χ₅ (q = 5, even) | 593 | 593 | 17 | 0.9995 ± 0.0013 |
+
+**B. Form factor, measured / prime-power sum** (τ = 0.35, 0.55, 0.75, 0.95), and the mean of the measured K over 1.25 < τ < 1.7:
+
+| character | 0.35 | 0.55 | 0.75 | 0.95 | mean K, 1.25–1.7 |
+|---|---|---|---|---|---|
+| χ₋₄ (q = 4, odd) | 0.49 / 0.48 | 0.69 / 0.68 | 1.19 / 0.90 | 1.15 / 1.08 | 1.12 |
+| χ₈ (q = 8, even) | 0.54 / 0.52 | 0.64 / 0.68 | 1.07 / 0.91 | 1.26 / 1.14 | 1.07 |
+| χ₋₃ (q = 3, odd) | 0.50 / 0.49 | 0.78 / 0.78 | 0.96 / 0.95 | 1.58 / 1.12 | 0.96 |
+| χ₅ (q = 5, even) | 0.51 / 0.51 | 0.79 / 0.80 | 0.97 / 0.88 | 1.26 / 1.17 | 1.10 |
+
+Individual bins above τ = 1 scatter by about ±0.2 because only about 570 zeros are available, so the saturation is consistent with 1 but not precisely measured.
+
+**C. Close pairs** (observed / random-matrix expected / zeta BK function at the same ln(qt/2π)):
+
+| character | gaps | ⟨L⟩ | ν < 0.2 | ν < 0.3 | ν < 0.5 |
+|---|---|---|---|---|---|
+| χ₋₄ (q = 4, odd) | 530 | 5.44 | 2 / 4.5 / 2.1 | 4 / 14.6 / 7.7 | 36 / 59.9 / 43.1 |
+| χ₈ (q = 8, even) | 599 | 6.13 | 1 / 5.1 / 2.8 | 10 / 16.5 / 9.9 | 45 / 67.7 / 51.3 |
+| χ₋₃ (q = 3, odd) | 503 | 5.15 | 1 / 4.3 / 1.8 | 3 / 13.9 / 6.8 | 26 / 56.9 / 39.9 |
+| χ₅ (q = 5, even) | 553 | 5.66 | 2 / 4.7 / 2.3 | 7 / 15.3 / 8.4 | 34 / 62.5 / 45.8 |
+| **pooled** | **2185** | | **6 / 18.6 / 8.9** | **24 / 60.3 / 32.9** | **141 / 247.0 / 180.1** |
+
+Pooled z-scores (random matrix / zeta BK): ν < 0.3: -4.7 / -1.5; ν < 0.5: -6.7 / -2.9.
+
+**Control: zeta zeros at the same ln(γ/2π)** (Odlyzko's published zeros, 1000 < γ < 2900, 1721 gaps, ⟨L⟩ = 5.71; observed / random matrix / zeta BK): ν < 0.3: 25 / 47.5 / 26.7; ν < 0.5: 147 / 194.6 / 143.5. The zeta formula fits the zeta zeros here, which also extends my earlier test of it down to ln(γ/2π) ≈ 5.4.
+
+## 3. Reading the result
+
+- The universal parts (that the zeros contain the primes, with their character, and that the form factor ramps along the prime sum and then saturates) are robust across these four L-functions.
+- The finite-height correction depends on the L-function. For characters the diagonal part changes through the weights |χ(p)|² (primes dividing q drop out), and the off-diagonal prime-pair term changes because the Hardy–Littlewood singular series is twisted by χ (for χ₋₄, for example, the sign of the correlation of χ(n) and χ(n+h) flips between h ≡ 0 and h ≡ 2 mod 4). My zeta formula contains none of this, and the data lie below it.
+- Adapting the formula would mean deriving the twisted singular series and the modified Euler product for each character. I did not do this, so I cannot say whether the adapted formula would close the remaining gap.
+
+## 4. Limitations
+
+- Small sample (about 2,200 gaps), low heights (t ≤ 700, ln(qt/2π) = 3.6–6.3), only real characters of conductor ≤ 8.
+- The pooled z-score of −2.9 for ν < 0.5 is not large; ν < 0.3 gives −1.5. The thresholds are nested, so the z-scores are not independent.
+- Hurwitz-zeta evaluation is slow (25–80 ms per point), which limits the height. A Riemann–Siegel-type formula for L(s, χ) would allow far larger samples.
+- Nothing here bears on RH.
+
+## 5. Next steps
+
+- Derive the twisted Hardy–Littlewood singular series for a quadratic character and build the adapted BK function.
+- Extend to complex characters (where the off-diagonal term is suppressed by about 1/q) and to larger conductors, where the prediction is simpler and the test sharper.
+- Compute zeros with a fast formula to heights of 10⁵ and beyond.
+
+## Files
+
+`dirichlet_zeros.py` (zeros), `dz_analyze.py` (zero finding, peaks), `dz_pairs.py` (close pairs and form factors, with the zeta table extended to ln(γ/2π) = 3.5), `dz_control.py` (zeta control), `write_dz_readme.py`; results `dz_results.json`, `dz_pairs.json`, `dz_control.json`. The zeta BK tables come from `bk_pred.py` and `bk_R2_table.npz`.
