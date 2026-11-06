@@ -1,0 +1,11 @@
+cd /home/squire && ps aux | grep dirichlet_zeros | grep -v grep | awk '{print $10}'; python3 - <<'EOF'
+import time, dirichlet_zeros as D
+for t in (200.0, 800.0, 1400.0):
+    t0=time.time()
+    for k in range(5): D.Z("chi_-4", t+0.06*k)
+    print(t, (time.time()-t0)/5)
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"6:35\n200.0 0.027456998825073242\n800.0 0.048503780364990236\n1400.0 0.07880339622497559\n","stderr":""}
