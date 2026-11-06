@@ -1,0 +1,58 @@
+import sys, json, numpy as np
+from scipy.interpolate import CubicSpline, RegularGridInterpolator
+import dirichlet_zeros as DZ
+from rh_survey import spline_roots
+import bk_pred as BK
+LAM_NAMES = ["chi_-4", "chi_8", "chi_-3", "chi_5"]
+pr = np.load('primes_2e8.npy').astype(np.float64)
+def chi_val(name, n):
+    q, a, tab = DZ.CH[name]; return tab[n % q]
+def lam(n):
+    for p in pr[pr <= n]:
+        q = int(p)
+        if n % q == 0:
+            while n % q == 0 and q <= n: 
+                if q == n: return float(np.log(p))
+                q *= int(p)
+            return 0.0
+    return 0.0
+def zeros_for(name):
+    d = np.load(f'dz_{name}.npz'); ts, z = d['ts'], d['z']; h = ts[1] - ts[0]
+    r, idx = spline_roots(z, h); roots = list(ts[0] + r)
+    # refine close pairs: adjacent sign changes in neighbouring intervals, or small same-sign local minima of |z|
+    s = np.sign(z); chg = np.zeros(len(z) - 1, bool); chg[idx] = True
+    flag = np.zeros(len(z) - 1, bool)
+    for k in np.nonzero(chg[1:] & chg[:-1])[0]: flag[max(k - 1, 0):k + 3] = True
+    rms = np.sqrt(np.mean(z**2)); i = np.arange(1, len(z) - 1)
+    cand = i[(s[i - 1] == s[i]) & (s[i] == s[i + 1]) & (abs(z[i]) <= abs(z[i - 1])) & (abs(z[i]) <= abs(z[i + 1])) & (abs(z[i]) < 0.06 * rms)]
+    for c in cand: flag[c - 1:c + 1] = True
+    rootarr = np.array(roots); keep = np.ones(len(rootarr), bool); extra = []; k = 0; nref = 0
+    while k < len(z) - 1:
+        if not flag[k]: k += 1; continue
+        a = k
+        while k < len(z) - 1 and flag[k]: k += 1
+        b = k; ta, tb = ts[a], ts[b]
+        keep &= ~((rootarr >= ta) & (rootarr < tb))
+        fine = np.arange(ta, tb + 1e-9, 0.004); zf = np.array([DZ.Z(name, float(t))[0] for t in fine])
+        rf, _ = spline_roots(zf, 0.004); extra.extend(list(fine[0] + rf)); nref += 1
+    allr = np.sort(np.concatenate([rootarr[keep], np.array(extra)]))
+    return allr, nref
+def peaks(name, zeros, nmax=40, t_lo=100.0):
+    g = zeros[zeros > t_lo]; d = g - g[0]; W = d[-1]; w = np.sin(np.pi * d / W)**2; T0 = g[0]; out = []
+    for n in range(2, nmax + 1):
+        u = np.log(n); S = np.sum(w * np.exp(1j * d * u)) * np.exp(1j * (T0 * u % (2 * np.pi)))
+        A = chi_val(name, n) * lam(n) / (2 * np.pi * np.sqrt(n)) * W / 2; out.append((n, chi_val(name, n), lam(n), S.real, S.imag, A))
+    return np.array(out), W
+if __name__ == "__main__":
+    res = {}
+    for name in [n for n in LAM_NAMES if len(sys.argv) < 2 or n in sys.argv[1:]]:
+        try: zeros, nref = zeros_for(name)
+        except FileNotFoundError: continue
+        q = DZ.CH[name][0]; t1 = np.load(f'dz_{name}.npz')['ts'][-1]
+        nexp = (t1 / (2 * np.pi)) * np.log(q * t1 / (2 * np.pi * np.e)) - (1 / (2 * np.pi)) * np.log(q / (2 * np.pi * np.e))
+        pk, W = peaks(name, zeros); pp = pk[(pk[:, 2] > 0) & (pk[:, 5] != 0)]
+        ratio = pp[:, 3] / (-pp[:, 5]); zero_pk = pk[(pk[:, 2] > 0) & (pk[:, 5] == 0)]
+        print(f"{name}: q={q} zeros={len(zeros)} (smooth expectation {nexp:.0f}), refined regions {nref}; peaks: {len(pp)} prime powers with chi(n)!=0: S/(-A) mean {ratio.mean():.4f} std {ratio.std():.4f} range [{ratio.min():.3f},{ratio.max():.3f}]; "
+              f"prime powers with chi(n)=0: n={[int(x) for x in zero_pk[:,0]]} |S| = {[round(float(np.hypot(x[3],x[4])),2) for x in zero_pk]} vs typical A {np.median(np.abs(pp[:,5])):.1f}")
+        res[name] = dict(q=q, n=len(zeros), zeros=zeros.tolist(), peak_ratio_mean=float(ratio.mean()), peak_ratio_std=float(ratio.std()), n_peaks=int(len(pp)), W=float(W))
+    json.dump(res, open('dz_results.json', 'w'))
