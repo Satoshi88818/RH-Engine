@@ -1,0 +1,94 @@
+import json
+D = json.load(open('dz_adapted.json')); AB = json.load(open('dz_ablation.json')); P = D['pooled']
+names = [("chi_-4", "χ₋₄ (q = 4)"), ("chi_8", "χ₈ (q = 8)"), ("chi_-3", "χ₋₃ (q = 3)"), ("chi_5", "χ₅ (q = 5)")]
+t1 = "\n".join(f"| {lab} | {D[k]['n']} | {D[k]['L']:.2f} | " + " | ".join(f"{D[k]['x'][x]['obs']} / {D[k]['x'][x]['rm']:.1f} / {D[k]['x'][x]['zeta']:.1f} / **{D[k]['x'][x]['adapted']:.1f}**" for x in ('0.3', '0.5')) + " |" for k, lab in names)
+t1 += f"\n| **pooled** | **{sum(D[k]['n'] for k,_ in names)}** | | " + " | ".join(f"**{P[x]['obs']} / {P[x]['rm']:.1f} / {P[x]['zeta']:.1f} / {P[x]['ad']:.1f}**" for x in ('0.3', '0.5')) + " |"
+lab = {'full': 'full adaptation (ζ_q with 1/c_q², bad primes removed from the Euler product and prime sums)', 'A': 'ζ_q with 1/c_q², but all primes kept in the Euler product and prime sums', 'B': 'plain ζ, but bad primes removed from the Euler product and prime sums'}
+t2 = "\n".join(f"| {lab[v]} | " + " | ".join(f"{AB[v][x]['pred']:.1f} (z = {AB[v][x]['z']:+.1f})" for x in ('0.3', '0.5')) + f" | {AB[v]['R2_over_GUE_q4_L5.5_s0.1']:.2f} |" for v in ('full', 'A', 'B'))
+md = f"""# A character-adapted Bogomolny–Keating formula, and a parameter-free test
+
+## Summary
+
+The zeta Bogomolny–Keating (BK) formula did not fit the zeros of Dirichlet L-functions (`README_dirichlet_L_functions.md`: 180 predicted against 141 observed close pairs). I derived the version for a real primitive character χ of conductor q from the ratios-conjecture recipe, implemented it, and tested it against the same 2,344 zeros with no fitted parameters.
+
+- **Result.** Pooled over the four characters the adapted formula predicts **{P['0.3']['ad']:.1f} and {P['0.5']['ad']:.1f}** gaps with ν < 0.3 and ν < 0.5; the data have **{P['0.3']['obs']} and {P['0.5']['obs']}** (z = {P['0.3']['z_ad']:+.1f} and {P['0.5']['z_ad']:+.1f}). The zeta formula at the same ln(qt/2π) is off by {P['0.3']['z_zeta']:+.1f}σ and {P['0.5']['z_zeta']:+.1f}σ, and plain random-matrix theory by {P['0.3']['z_rm']:+.1f}σ and {P['0.5']['z_rm']:+.1f}σ. Each of the four characters is individually within 1σ at ν < 0.5 (observed 36, 45, 26, 34; predicted 35.8, 44.7, 30.1, 36.4).
+- **Both ingredients of the adaptation matter.** Using ζ_q without removing the primes dividing q over-suppresses (125.7 predicted for ν < 0.5, z = +1.4); removing the primes but keeping ζ under-suppresses (199.3, z = −4.1).
+- **Caveats.** There are only 141 events at ν < 0.5 (about ±8%), at low heights (ln(qt/2π) = 3.6 to 6.3), for four real characters. The ablation separates the full formula from variant A only at about 1σ. The derivation rests on the ratios conjecture.
+
+## 1. Derivation
+
+For real χ the 4-shift ratio averaged over t is, by the Conrey–Farmer–Zirnbauer recipe,
+
+> R(α,β,γ,δ) = ⟨ L(s+α)L(1−s+β) / (L(s+γ)L(1−s+δ)) ⟩ = [ζ_q(1+α+β)ζ_q(1+γ+δ) / (ζ_q(1+α+δ)ζ_q(1+β+γ))] A_q(α,β,γ,δ) + (qt/2π)^(−α−β) [ζ_q(1−α−β)ζ_q(1+γ+δ) / (ζ_q(1−β+δ)ζ_q(1−α+γ))] A_q(−β,−α,γ,δ),
+
+where ζ_q(s) = ζ(s)∏_{{p|q}}(1 − p^(−s)) (the t-average keeps terms with equal exponents, and then χ(m)χ̄(m) = 1 for m coprime to q and 0 otherwise, so everything is the principal-character L-function), and A_q = ∏_{{p∤q}} A_p with the same local factors as for ζ; for p | q the local factor is 1.
+
+Differentiating ∂_γ∂_δ at γ = α, δ = β gives ⟨(L′/L)(s+α)(L′/L)(1−s+β)⟩. With z = α + β:
+
+> diagonal part: (ζ_q′/ζ_q)′(1+z) + B_q(z), where B_q(z) = −Σ_{{p∤q}} ln²p / (p^(1+z) − 1)², which combine to Σ_{{p∤q}} ln²p / (p^(1+z) − 1);
+> off-diagonal part: (qt/2π)^(−z) · c_q⁻² · ζ_q(1+z) ζ_q(1−z) · A_q(z), with c_q = ∏_{{p|q}}(1 − 1/p).
+
+The factor c_q⁻² is the one I would most easily have missed: it arises because the swap term has the poles of two denominator factors, 1/ζ_q(1+x) ≈ x/c_q, differentiated once each, so that ζ_q(1+z)ζ_q(1−z)/c_q² ≈ 1/z². Without it the 1/ε² poles of the two parts would not cancel.
+
+Setting z = iε and ρ = ln(qt/2π)/2π, and using A_p(z) = 1 − (1−p^(−z))²/(p−1)² (verified algebraically from the local factor E_p/X_p), the result has exactly the Bogomolny–Keating form
+
+> r₂(ε) = ρ² + (1/2π²) Re[ (ζ_q′/ζ_q)′(1+iε) + B_q(iε) ] + (1/4π²) c_q⁻² |ζ_q(1+iε)|² e^(i2πρε) A_q(ε) + c.c.,
+
+with ζ → ζ_q, all prime sums and the Euler product restricted to p ∤ q, and the extra c_q⁻². For q = 1 it is the original BK formula (and the same derivation reproduces it).
+
+## 2. Implementation and checks
+
+`bk_char.py` evaluates r₂ with ζ and its first two derivatives (mpmath), the Euler product over primes ≤ 2×10⁵, and the prime sum over p ≤ 10⁴, r ≤ 14.
+
+- **Regression:** for q = 1 the result is identical to my stored zeta BK table (maximum difference 0.0).
+- **Pole cancellation:** for every conductor tested (3, 4, 5, 8), R₂(s) → 0 like s² as s → 0.
+- The prediction is the same for q = 4 and q = 8, since both have the single bad prime 2 (so are the checks I did not do separately).
+
+Close-pair counts use p(s) ≈ R₂(s) for s < 0.5, normalised so that the random-matrix limit is the exact determinant value, as before, and each gap uses its own L = ln(qt/2π).
+
+## 3. Results
+
+Observed / random-matrix / zeta BK at the same L / **character-adapted**:
+
+| character | gaps | ⟨L⟩ | ν < 0.3 | ν < 0.5 |
+|---|---|---|---|---|
+{t1}
+
+**Ablation** (pooled predictions; the last column is R₂ relative to random matrices at L = 5.5, s = 0.1, q = 4):
+
+| variant | ν < 0.3 | ν < 0.5 | R₂ / GUE |
+|---|---|---|---|
+{t2}
+
+The data are 24 (ν < 0.3) and 141 (ν < 0.5).
+
+## 4. What this shows and does not show
+
+- The finite-height correction to the zeros of an L-function depends on the character through three things: the removal of the primes dividing the conductor (from the Euler product and the prime sums), the principal-character L-function ζ_q in the pole terms, and the normalisation c_q. Putting these in, without fitting anything, brings the predicted counts from 3σ off to within 1σ.
+- This is a consistency test of a formula I derived. A derivation error would more likely have given a bad fit than a good one, but with 141 events a 10% error would not show.
+- It does not test the lines near τ = 1. The formula predicts that for even conductors (q = 4, 8) the lines at τ = 1 + ln r/L that involve the prime 2 (r = 2, 6, 10, …, the strongest ones for ζ) are absent. That is a sharp prediction, but it needs about 10⁵ zeros to check.
+- Nothing here bears on RH.
+
+## 5. Limitations
+
+- Four real characters of conductor ≤ 8, about 2,200 gaps, heights below 700.
+- The ratios-conjecture recipe is itself a conjecture; here it is checked only through these counts.
+- The z-scores treat counts as Poisson, and the thresholds are nested.
+
+## 6. Next steps
+
+- Compute zeros of L(s, χ) to much greater height (needs a fast formula in place of the Hurwitz-zeta evaluation, which takes 25–80 ms per point), and test the prediction for the absent lines at q = 4, 8.
+- Test complex characters and larger conductors, where the formula predicts different behaviour (the off-diagonal term for complex χ involves χ(m)χ̄(n) with m ≠ n, which this derivation does not cover).
+- Check the form factor K(τ) near τ = 1 against the Fourier transform of the adapted R₂.
+
+## Files
+
+`bk_char.py` (adapted formula, with variants), `dz_adapted.py` (the test), `dz_ablation.py`, `write_adapted_readme.py`; results `dz_adapted.json`, `dz_ablation.json`. It uses `dirichlet_zeros.py`, `dz_analyze.py` and `bblm_tables.npz` from earlier.
+
+```bash
+python bk_char.py          # regression and pole checks
+python dz_adapted.py       # predicted vs observed close pairs
+python dz_ablation.py
+```
+"""
+open('/mnt/user-data/outputs/README_character_adapted_BK.md', 'w').write(md); print(len(md))
