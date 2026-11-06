@@ -1,0 +1,10 @@
+"""Control: does the zeta BK formula fit the ZETA zeros at ln(gamma/2pi) = 5.4-5.9 (the range of the Dirichlet zeros)?"""
+import json, numpy as np
+import dz_pairs as P            # builds the extended-L table (also reruns the Dirichlet analysis; cheap)
+tab = np.loadtxt('odlyzko/zeros6'); out = {}
+for lo, hi in [(1000, 2900), (1000, 1800), (1800, 2900)]:
+    z = tab[(tab >= lo) & (tab < hi)]; g = np.diff(z); tm = 0.5 * (z[1:] + z[:-1]); L = np.log(tm / (2 * np.pi)); nu = g * L / (2 * np.pi); row = dict(N=len(nu), L=float(L.mean()), x={})
+    for x in (0.2, 0.3, 0.5):
+        obs = int((nu < x).sum()); rm = float(P.F0(x)) * len(nu); bk = float(P.P_bk(x, L).sum()); row['x'][str(x)] = dict(obs=obs, rm=rm, bk=bk, z_rm=(obs - rm) / np.sqrt(rm), z_bk=(obs - bk) / np.sqrt(bk))
+    out[f"{lo}-{hi}"] = row
+json.dump(out, open('dz_control.json', 'w'), indent=1); print({k: {x: (v['obs'], round(v['rm'], 1), round(v['bk'], 1)) for x, v in r['x'].items()} for k, r in out.items()})
