@@ -1,0 +1,32 @@
+import json, numpy as np
+from scipy.interpolate import RegularGridInterpolator, CubicSpline
+import bk_char as BC
+import dirichlet_zeros as DZ
+import dz_analyze as A
+GUE = lambda s: 1 - np.sinc(s)**2
+SG = np.arange(0.02, 0.5201, 0.02); LG = np.arange(3.0, 6.76, 0.25); sfull = np.concatenate([[0.0], SG])
+gcum = np.concatenate([[0.0], np.cumsum(0.5 * (GUE(sfull[1:]) + GUE(sfull[:-1])) * np.diff(sfull))])
+T = np.load('bblm_tables.npz'); F0 = CubicSpline(np.concatenate([[0], T['xs']]), np.concatenate([[0], T['F0']]))
+tables = {}
+for qkey in (1, 3, 4, 5):                       # q=8 has the same bad prime set as q=4
+    R = np.array([BC.R2(L, SG, qkey) for L in LG]); Rf = np.concatenate([np.zeros((len(LG), 1)), R], axis=1)
+    cum = np.concatenate([np.zeros((len(LG), 1)), np.cumsum(0.5 * (Rf[:, 1:] + Rf[:, :-1]) * np.diff(sfull)[None, :], axis=1)], axis=1)
+    tables[qkey] = RegularGridInterpolator((LG, sfull), cum)
+np.savez('bk_char_tables.npz', L=LG, s=SG, **{f"R2_q{k}": None for k in ()})
+def P(qkey, x, L):
+    j = np.argmin(abs(sfull - x)); return F0(x) * tables[qkey](np.column_stack([np.clip(L, LG[0], LG[-1]), np.full_like(L, sfull[j])])) / gcum[j]
+out = {}; X = (0.1, 0.2, 0.3, 0.5); pooled = {x: dict(obs=0, rm=0.0, zeta=0.0, ad=0.0) for x in X}
+print("character | gaps | <L> | x: obs / RM / zeta-BK / ADAPTED | z_zeta  z_adapted")
+for name in A.LAM_NAMES:
+    zeros, _ = A.zeros_for(name); q = DZ.CH[name][0]; qkey = {3: 3, 4: 4, 5: 5, 8: 4}[q]
+    g = np.diff(zeros); tm = 0.5 * (zeros[1:] + zeros[:-1]); sel = tm >= 80.0; g, tm = g[sel], tm[sel]; L = np.log(q * tm / (2 * np.pi)); nu = g * L / (2 * np.pi)
+    row = dict(q=q, n=len(nu), L=float(L.mean()), x={})
+    for x in X:
+        obs = int((nu < x).sum()); rm = float(F0(x)) * len(nu); ze = float(P(1, x, L).sum()); ad = float(P(qkey, x, L).sum())
+        row['x'][str(x)] = dict(obs=obs, rm=rm, zeta=ze, adapted=ad, z_zeta=(obs - ze) / np.sqrt(ze), z_ad=(obs - ad) / np.sqrt(ad))
+        for k, v in (('obs', obs), ('rm', rm), ('zeta', ze), ('ad', ad)): pooled[x][k] += v
+    out[name] = row
+    print(f"{name:7s} N={len(nu)} <L>={row['L']:.2f} | " + " | ".join(f"x={x}: {v['obs']}/{v['rm']:.1f}/{v['zeta']:.1f}/{v['adapted']:.1f} z={v['z_zeta']:+.1f}/{v['z_ad']:+.1f}" for x, v in row['x'].items()))
+out['pooled'] = {str(x): dict(**v, z_zeta=(v['obs'] - v['zeta']) / np.sqrt(v['zeta']), z_ad=(v['obs'] - v['ad']) / np.sqrt(v['ad']), z_rm=(v['obs'] - v['rm']) / np.sqrt(v['rm'])) for x, v in pooled.items()}
+print("POOLED: " + " | ".join(f"x={x}: {v['obs']}/{v['rm']:.1f}/{v['zeta']:.1f}/{v['ad']:.1f}  z_RM={v['z_rm']:+.1f} z_zeta={v['z_zeta']:+.1f} z_ADAPTED={v['z_ad']:+.1f}" for x, v in out['pooled'].items()))
+json.dump(out, open('dz_adapted.json', 'w'), indent=1)
