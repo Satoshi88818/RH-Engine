@@ -1,0 +1,10 @@
+cd /home/squiy && timeout 280 python3 li_arith.py 800 3072 12.5 160 li_arith_800b.json && python3 - <<'EOF'
+import json, mpmath as mp
+mp.mp.dps=60
+A=[mp.mpf(x) for x in json.load(open('/home/squire/li_arith_800.json'))]; B=[mp.mpf(x) for x in json.load(open('/home/squire/li_arith_800b.json'))]
+d=max(abs(a-b)/abs(a) for a,b in zip(A,B)); print("max relative difference between the two arithmetic runs (r=13 vs 12.5, M=4096 vs 3072, 150 vs 160 digits):", mp.nstr(d,3))
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"N=800 M=3072 r=12.5 dps=160: 139s\nlambda_1..6: ['0.0230957089661', '0.092345735228', '0.207638920554', '0.368790479492', '0.575542714461', '0.827566012282']\nmax relative difference between the two arithmetic runs (r=13 vs 12.5, M=4096 vs 3072, 150 vs 160 digits): 0.0\n","stderr":""}
