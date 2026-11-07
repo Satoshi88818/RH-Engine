@@ -1,0 +1,25 @@
+cd /home/squire && cat > li_zeros.py <<'EOF'
+"""Li coefficients from the zero side: lambda_n = sum_{gamma>0} 4 sin^2(n theta/2), theta = 2 arctan(1/(2 gamma)),
+using Odlyzko's 2,001,052 published zeros (gamma <= 1,132,490.66) plus a smooth-density tail integral."""
+import json, sys, numpy as np
+EG = 0.5772156649015329
+zs = np.loadtxt('odlyzko/zeros6'); T = zs[-1]; th = 2 * np.arctan(1 / (2 * zs))
+def tail(n):
+    # int_T^inf 4 sin^2(n theta(g)/2) * ln(g/2pi)/(2pi) dg  on a log grid, plus analytic remainder
+    G = 1e15; x = np.linspace(np.log(T), np.log(G), 200001); g = np.exp(x); f = 4 * np.sin(n * 2 * np.arctan(1 / (2 * g)) / 2)**2 * np.log(g / (2 * np.pi)) / (2 * np.pi) * g
+    return float(np.trapezoid(f, x) + n**2 / (2 * np.pi) * (np.log(G / (2 * np.pi)) + 1) / G)
+def lam_zero(n): return float(np.sum(4 * np.sin(n * th / 2)**2))
+def asym(n): return 0.5 * n * (np.log(n) + EG - 1 - np.log(2 * np.pi))
+if __name__ == "__main__":
+    ns = list(range(1, 801)) + [1000, 1500, 2000, 3000, 5000, 7500, 10000, 15000, 20000, 30000, 50000, 100000, 200000]
+    out = {}
+    for n in ns:
+        lz = lam_zero(n); tl = tail(n); out[n] = dict(zeros=lz, tail=tl, total=lz + tl, asym=float(asym(n)))
+    json.dump(out, open('li_zeros.json', 'w')); print("done", len(ns))
+    for n in (1, 2, 10, 100, 400, 800, 5000, 100000, 200000): print(n, round(out[n]['total'], 6), "tail", round(out[n]['tail'], 6), "asym", round(out[n]['asym'], 3))
+EOF
+python3 li_zeros.py; cat li1.log
+
+Response:
+
+{"returncode":0,"stdout":"done 813\n1 0.023096 tail 2e-06 asym -1.13\n2 0.092346 tail 7e-06 asym -1.568\n10 2.279339 tail 0.000184 asym 0.21\n100 118.603775 tail 0.018413 asym 117.225\n400 748.315583 tail 0.294608 asym 746.161\n800 1763.863484 tail 1.178433 asym 1769.58\n5000 15639.094237 tail 46.032508 asym 15641.329\n100000 462580.787275 tail 18409.228086 asym 462613.203\n200000 994506.838319 tail 73591.526616 asym 994541.124\nN=800 M=4096 r=13.0 dps=150: 157s\nlambda_1..6: ['0.0230957089661', '0.092345735228', '0.207638920554', '0.368790479492', '0.575542714461', '0.827566012282']\n","stderr":""}
