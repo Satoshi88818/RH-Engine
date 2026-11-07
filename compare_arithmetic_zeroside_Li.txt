@@ -1,0 +1,26 @@
+cd /home/squire && python3 - <<'EOF'
+import json, numpy as np, mpmath as mp
+mp.mp.dps=60
+A=[mp.mpf(x) for x in json.load(open('li_arith_800.json'))]
+Z=json.load(open('li_zeros.json'))
+print("known: lambda_1 = 0.02309570896612103, lambda_2 = 0.09234573522...  arithmetic:",mp.nstr(A[0],15),mp.nstr(A[1],12))
+import os
+if os.path.exists('li_arith_800b.json'):
+    B=[mp.mpf(x) for x in json.load(open('li_arith_800b.json'))]; d=max(abs(a-b)/abs(a) for a,b in zip(A,B)); print("max relative difference between two arithmetic runs (different r, M, dps):",mp.nstr(d,3))
+d=[]; 
+for n in range(1,801):
+    z=Z[str(n)]['total']; a=float(A[n-1]); d.append((n,a,z,z-a))
+d=np.array(d)
+for n in (1,2,5,10,50,100,200,400,600,800): 
+    r=d[n-1]; print(f"n={n:4d} arithmetic {r[1]:.8f}  zeros+tail {r[2]:.8f}  diff {r[3]:+.2e}  rel {abs(r[3])/r[1]:.1e}")
+print("max |diff| over n<=100:",np.abs(d[:100,3]).max()," over n<=400:",np.abs(d[:400,3]).max()," over n<=800:",np.abs(d[:,3]).max())
+# is lambda_n > 0 and residual from asymptotic
+res=np.array([ (n, float(A[n-1])-Z[str(n)]['asym']) for n in range(1,801)])
+print("min lambda_n (n<=800):",min(float(a) for a in A))
+print("residual lambda_n - asym: n=100: %.3f n=400: %.3f n=800: %.3f ; rms over 400<n<=800: %.3f ; relative to asym at n=800: %.2e"%(res[99,1],res[399,1],res[799,1],np.sqrt(np.mean(res[400:,1]**2)),abs(res[799,1])/Z['800']['asym']))
+EOF
+cat li2.log
+
+Response:
+
+{"returncode":0,"stdout":"known: lambda_1 = 0.02309570896612103, lambda_2 = 0.09234573522...  arithmetic: 0.023095708966121 0.092345735228\nn=   1 arithmetic 0.02309571  zeros+tail 0.02309571  diff +2.34e-13  rel 1.0e-11\nn=   2 arithmetic 0.09234574  zeros+tail 0.09234574  diff +9.38e-13  rel 1.0e-11\nn=   5 arithmetic 0.57554271  zeros+tail 0.57554271  diff +5.95e-12  rel 1.0e-11\nn=  10 arithmetic 2.27933936  zeros+tail 2.27933936  diff +2.51e-11  rel 1.1e-11\nn=  50 arithmetic 43.53109649  zeros+tail 43.53109649  diff +1.19e-09  rel 2.7e-11\nn= 100 arithmetic 118.60377538  zeros+tail 118.60377538  diff +4.72e-09  rel 4.0e-11\nn= 200 arithmetic 306.65576485  zeros+tail 306.65576487  diff +1.92e-08  rel 6.2e-11\nn= 400 arithmetic 748.31558284  zeros+tail 748.31558292  diff +7.77e-08  rel 1.0e-10\nn= 600 arithmetic 1242.14331374  zeros+tail 1242.14331392  diff +1.77e-07  rel 1.4e-10\nn= 800 arithmetic 1763.86348359  zeros+tail 1763.86348391  diff +3.11e-07  rel 1.8e-10\nmax |diff| over n<=100: 4.715673185273772e-09  over n<=400: 7.766220733174123e-08  over n<=800: 3.1122340260480996e-07\nmin lambda_n (n<=800): 0.023095708966121033\nresidual lambda_n - asym: n=100: 1.378 n=400: 2.155 n=800: -5.717 ; rms over 400<n<=800: 3.115 ; relative to asym at n=800: 3.23e-03\n","stderr":""}
