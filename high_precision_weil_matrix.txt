@@ -1,0 +1,75 @@
+cd /home/squire && cat > hp.py << 'EOF'
+import time, json
+import numpy as np
+from mpmath import mp, mpf, mpc, matrix, exp, cos, sqrt, pi, log, digamma, quad, re, zetazero, eigsy, cholesky, inverse
+mp.dps=70
+w=mpf(2); t0=mpf(10); Delta=mpf(1)
+MS=[4,8,12,16,20,24,28,32,36,40]
+mmax=max(MS); ts=[t0+j*Delta for j in range(mmax)]
+# ---- prime side ingredients
+Nmax=40000
+sieve=np.ones(Nmax+1,bool); sieve[:2]=False
+for p in range(2,int(Nmax**0.5)+1):
+    if sieve[p]: sieve[p*p::p]=False
+terms=[]   # (u, c) with c=Lambda(n)/sqrt(n)*exp(-w^2 u^2/4)
+for p in np.nonzero(sieve)[0]:
+    q=int(p)
+    while q<=Nmax:
+        u=log(mpf(q)); c=log(mpf(int(p)))/sqrt(mpf(q))*exp(-w*w*u*u/4); terms.append((u,c)); q*=int(p)
+print("prime-power terms:",len(terms),"smallest kept weight ~",mp.nstr(terms[-1][1],3),flush=True)
+tailbound=exp(-w*w*log(mpf(Nmax))**2/4); print("Gaussian tail at n=Nmax: e^-...=",mp.nstr(tailbound,3),flush=True)
+cacheP={}; cachePsi={}
+def key(tau): return mp.nstr(abs(tau),30)
+def P(tau):
+    k=key(tau)
+    if k not in cacheP:
+        tau=abs(tau); cacheP[k]=sum(c*cos(tau*u) for u,c in terms)
+    return cacheP[k]
+def Psi(m):
+    k=key(m)
+    if k not in cachePsi:
+        m=abs(m)
+        f=lambda r: exp(-(r-m)**2/(w*w))*re(digamma(mpf(1)/4+mpc(0,1)*r/2))
+        cachePsi[k]=quad(f,[m-14*w,m,m+14*w])/(2*pi)
+    return cachePsi[k]
+def hb(r,t): return exp(-(r-t)**2/(2*w*w))+exp(-(r+t)**2/(2*w*w))
+# zeros (first 60)
+t1=time.time(); gam=[zetazero(k).imag for k in range(1,61)]; print("zeros computed",round(time.time()-t1),"s; gamma_60=",mp.nstr(gam[-1],8),flush=True)
+def build(m):
+    A=matrix(m,m); Mn=matrix(m,m); Pr=matrix(m,m); AZ=matrix(m,m)
+    hi=[hb(mpc(0,0.5),ts[j]).real for j in range(m)]
+    for j in range(m):
+        for k in range(j,m):
+            tj,tk=ts[j],ts[k]
+            E1=exp(-(tj-tk)**2/(4*w*w)); E2=exp(-(tj+tk)**2/(4*w*w))
+            sp,sm=(tj+tk)/2,(tj-tk)/2
+            g0=(w/sqrt(pi))*(E1+E2)
+            arch=2*(E1*Psi(sp)+E2*Psi(sm))-log(pi)*g0
+            pole=2*hi[j]*hi[k]
+            pr=2*(w/sqrt(pi))*(E1*P(sp)+E2*P(sm))
+            Mn[j,k]=Mn[k,j]=pole+arch; Pr[j,k]=Pr[k,j]=pr
+            A[j,k]=A[k,j]=pole+arch-pr
+            z=2*sum(hb(g,tj)*hb(g,tk) for g in gam)
+            AZ[j,k]=AZ[k,j]=z
+    return A,Mn,Pr,AZ
+res={}
+for m in MS:
+    t2=time.time(); A,Mn,Pr,AZ=build(m)
+    diff=max(abs(A[i,j]-AZ[i,j]) for i in range(m) for j in range(m))
+    # generalized eigenvalues of A relative to Main: whiten with Cholesky of Main
+    L=cholesky(Mn); Li=inverse(L); W=Li*A*Li.T
+    W=(W+W.T)/2
+    ev=eigsy(W,eigvals_only=True); evA=eigsy((A+A.T)/2,eigvals_only=True)
+    evZ=eigsy((AZ+AZ.T)/2,eigvals_only=True)
+    lmin=min(ev); lminA=min(evA); lminZ=min(evZ)
+    res[m]=dict(maxdiff=mp.nstr(diff,5),lam_rel_min=mp.nstr(lmin,8),lam_rel_max=mp.nstr(max(ev),8),eigA_min=mp.nstr(lminA,8),eigAZ_min=mp.nstr(lminZ,8),D=mp.nstr(1-lmin,12))
+    print(f"m={m:2d} span=[{10},{10+m-1}] |A_prime-A_zero|max={mp.nstr(diff,3)}  min gen.eig(A,Main)={mp.nstr(lmin,5)}  D=1-min={mp.nstr(1-lmin,10)}  min eig A={mp.nstr(lminA,5)}  min eig A_zero={mp.nstr(lminZ,5)}  [{round(time.time()-t2)}s]",flush=True)
+    json.dump(res,open('hp_res.json','w'))
+print("done",flush=True)
+EOF
+setsid nohup python3 hp.py > hp.log 2>&1 < /dev/null &
+sleep 90; cat hp.log
+
+Response:
+
+{"returncode":0,"stdout":"prime-power terms: 4285 smallest kept weight ~ 9.13e-51\nGaussian tail at n=Nmax: e^-...= 1.71e-49\nzeros computed 3 s; gamma_60= 163.03071\nm= 4 span=[10,13] |A_prime-A_zero|max=5.89e-28  min gen.eig(A,Main)=-3.6432e-27  D=1-min=1.0  min eig A=-4.4275e-28  min eig A_zero=2.0026e-39  [56s]\n","stderr":""}
