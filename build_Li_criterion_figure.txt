@@ -1,0 +1,29 @@
+cd /home/squire && cat > build_li.py <<'EOF'
+import json, numpy as np, mpmath as mp, matplotlib
+matplotlib.use("Agg"); import matplotlib.pyplot as plt
+import li_fake as LF
+mp.mp.dps = 50
+A = np.array([float(mp.mpf(x)) for x in json.load(open('li_arith_800.json'))]); Z = json.load(open('li_zeros.json'))
+ns = np.arange(1, 801); zt = np.array([Z[str(n)]['total'] for n in ns]); asym = np.array([Z[str(n)]['asym'] for n in ns])
+f, ax = plt.subplots(2, 2, figsize=(12.5, 8.6))
+big = sorted(int(k) for k in Z if int(k) >= 800); ax[0, 0].loglog(ns, A, '-', color='C0', lw=2, label='arithmetic (log ξ Taylor coefficients), n ≤ 800')
+ax[0, 0].loglog(big, [Z[str(n)]['total'] for n in big], 'o', ms=4, color='C3', label='published zeros + tail, n up to 2×10⁵'); nn = np.logspace(0.5, 5.4, 200); ax[0, 0].loglog(nn[nn > 8], LF.asym(nn[nn > 8]), 'k:', label='(n/2)(ln n + γ − 1 − ln 2π)')
+ax[0, 0].set(xlabel='n', ylabel='λ_n', title='Li coefficients: positive and growing like (n/2) ln n'); ax[0, 0].legend(fontsize=7)
+d = np.abs(zt - A) / A; ax[0, 1].loglog(ns, d, '.', ms=3, color='C0', label='|zero side − arithmetic| / λ_n'); ax[0, 1].loglog(ns, np.abs(A - asym) / asym, '.', ms=3, color='C1', label='|λ_n − asymptotic| / asymptotic')
+ax[0, 1].set(xlabel='n', ylabel='relative difference', title='The two computations agree to 10⁻¹⁰ (n ≤ 800)'); ax[0, 1].legend(fontsize=7)
+gs = np.logspace(np.log10(14.13), 13, 60)
+for d_, c in [(0.4, 'C0'), (0.1, 'C1'), (0.01, 'C2'), (0.001, 'C3')]: ax[1, 0].loglog(gs, [LF.estimate(g, d_) for g in gs], color=c, label=f'off-line by δ = {d_}')
+for N, lab in [(800, 'n = 800 (computed here)'), (1e6, '10⁶'), (1e9, '10⁹')]: ax[1, 0].axhline(N, color='gray', ls='--', lw=.8); ax[1, 0].text(15, N * 1.4, lab, fontsize=7)
+ax[1, 0].axvline(14.13, color='k', ls=':', lw=.8); ax[1, 0].axvline(3e12, color='k', ls=':', lw=.8); ax[1, 0].text(3e12, 3, 'RH verified\nup to here', fontsize=7, ha='right')
+ax[1, 0].set(xlabel='height γ₀ of a hypothetical off-line zero', ylabel='n* where λ_n would first turn negative', title='How deep must Li\'s criterion go? n* ≈ (γ₀² + ¼)/δ · ln(λ_n)'); ax[1, 0].legend(fontsize=7)
+n = np.unique(np.concatenate([np.arange(1, 801), np.logspace(np.log10(800), 4.6, 4000).astype(int)])).astype(float)
+for (g0, d_, c) in [(14.134725, 0.1, 'C1'), (14.134725, 0.4, 'C0')]:
+    v = LF.lam_true(n) + LF.delta_n(n, g0, d_); ax[1, 1].semilogx(n, v / LF.asym(np.maximum(n, 3)), color=c, lw=.8, label=f'γ₀ = 14.13, δ = {d_}  (n* = {LF.exact_scan(g0, d_)})')
+ax[1, 1].axhline(0, color='k', lw=.6); ax[1, 1].set(xlabel='n', ylabel='(λ_n + extra-zero contribution) / asymptotic', title='A hypothetical zero off the line turns λ_n negative only at huge n', ylim=(-2, 2.5)); ax[1, 1].legend(fontsize=7)
+plt.tight_layout(); plt.savefig('rh_li_criterion.png', dpi=125); print('ok')
+EOF
+python3 build_li.py 2>&1 | grep -v Warning
+
+Response:
+
+{"returncode":0,"stdout":"ok\n","stderr":""}
