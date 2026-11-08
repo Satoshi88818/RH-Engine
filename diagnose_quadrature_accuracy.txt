@@ -1,0 +1,19 @@
+cd /home/squire && python3 - << 'EOF'
+from mpmath import mp, mpf, mpc, quad, exp, re, digamma, pi
+import time
+mp.dps=70
+w=mpf(2)
+def Psi(m,deg=6,split=True):
+    f=lambda r: exp(-(r-m)**2/(w*w))*re(digamma(mpf(1)/4+mpc(0,1)*r/2))
+    pts=[m-14*w,m,m+14*w] if split else [m-14*w,m+14*w]
+    return quad(f,pts,maxdegree=deg)/(2*pi)
+for m in [mpf(10),mpf(12.5),mpf(20)]:
+    t=time.time(); a=Psi(m,6); t1=time.time()-t
+    t=time.time(); b=Psi(m,10); t2=time.time()-t
+    c=quad(lambda r: exp(-(r-m)**2/(w*w))*re(digamma(mpf(1)/4+mpc(0,1)*r/2)),mp.linspace(m-14*w,m+14*w,15),maxdegree=10)/(2*pi)
+    print("m=",m," deg6 vs deg10 diff:",mp.nstr(abs(a-b),3),"(",round(t1,1),"s,",round(t2,1),"s) ; 14-piece vs deg10:",mp.nstr(abs(c-b),3))
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"m= 10.0  deg6 vs deg10 diff: 4.11e-16 ( 1.8 s, 15.1 s) ; 14-piece vs deg10: 0.0\nm= 12.5  deg6 vs deg10 diff: 1.58e-21 ( 1.7 s, 14.3 s) ; 14-piece vs deg10: 0.0\nm= 20.0  deg6 vs deg10 diff: 1.44e-48 ( 1.5 s, 8.2 s) ; 14-piece vs deg10: 0.0\n","stderr":""}
