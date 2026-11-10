@@ -1,0 +1,23 @@
+cd /home/squire && cat > refine_true.py << 'EOF'
+import numpy as np, time
+from mpmath import mp, mpc, mpf, findroot
+import dh
+mp.dps=30
+on=np.load('dhz_online.npy'); out=on.copy(); t0=time.time(); bad=0
+for i,g0 in enumerate(on):
+    sc=abs(dh.G(mpc(0.5,mpf(g0))))+mpf('1e-300')
+    # scaled real function; secant from two nearby points, then verify sign change bracket
+    try:
+        r=findroot(lambda t: dh.G(mpc(0.5,t)).real/sc,(mpf(g0)-mpf('0.02'),mpf(g0)+mpf('0.02')),solver='secant',tol=1e-24,maxsteps=60)
+        if abs(float(r)-g0)<0.05: out[i]=float(r)
+        else: bad+=1
+    except Exception as e: bad+=1
+    if i%100==99: print(i+1,round(time.time()-t0),"bad so far",bad,flush=True)
+np.save('dhz_online_true.npy',out); print("done; bad",bad,"; max shift vs grid positions %.4f ; vs previous 'refined': %.4f"%(np.abs(out-on).max(),np.abs(out-np.load('dhz_online_refined_all.npy')).max()),flush=True)
+EOF
+setsid nohup python3 refine_true.py > refine_true.log 2>&1 < /dev/null &
+sleep 120; cat refine_true.log
+
+Response:
+
+{"returncode":0,"stdout":"100 38 bad so far 0\n200 115 bad so far 0\n","stderr":""}

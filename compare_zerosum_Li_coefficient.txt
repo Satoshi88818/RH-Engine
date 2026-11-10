@@ -1,0 +1,34 @@
+cd /home/squire && cat > li_dh2.py << 'EOF'
+import numpy as np, json
+from scipy.integrate import quad
+on=np.load('dhz_online_refined_all.npy'); off=np.load('dhz_offline.npy'); lam=np.array(json.load(open('lam_dh.json')))
+T=600.0
+def phi(g): return 2*np.arctan(1/(2*g))
+def online_sum(n,g): return np.sum(2*(1-np.cos(n*phi(g))))
+def w_of(rho): return 1-1/rho
+def offline_sum(n):
+    s=0.0
+    for r in off:
+        for rho in (r,1-r.conjugate()):
+            w=w_of(rho); s+=2*np.real(1-np.exp(n*np.log(w)))
+    return s
+def tail(n,T,q=5):
+    f=lambda x: 2*(1-np.cos(n*phi(x)))*np.log(q*x/(2*np.pi))/(2*np.pi)
+    pts=[T*10**k for k in range(0,12)]; s=0
+    for a,b in zip(pts[:-1],pts[1:]): s+=quad(f,a,b,limit=400)[0]
+    s+=quad(lambda x:(n**2/x**2)*np.log(q*x/(2*np.pi))/(2*np.pi),pts[-1],np.inf)[0]
+    return s
+print("n | exact lambda_n | on-line zeros<=600 | off-line zeros | tail(q=5,assumed on-line) | total | rel.err")
+for n in [1,2,5,10,20,50,100,150]:
+    a=online_sum(n,on); b=offline_sum(n); t=tail(n,T); tot=a+b+t
+    print(f"{n:3d} {lam[n-1]:12.6f} {a:12.6f} {b:+10.6f} {t:10.6f} {tot:12.6f} {abs(tot-lam[n-1])/lam[n-1]:.2e}")
+errs=[abs(online_sum(n,on)+offline_sum(n)+tail(n,T)-lam[n-1])/lam[n-1] for n in range(1,151)]
+print("max relative error over n<=150: %.2e at n=%d"%(max(errs),1+int(np.argmax(errs))))
+errs2=[abs(online_sum(n,on)+tail(n,T)+0-lam[n-1])/lam[n-1] for n in range(1,151)]
+print("same, omitting off-line zeros' special terms (treating them as absent): max rel error %.2e"%max(errs2))
+EOF
+python3 li_dh2.py 2>&1 | grep -v Warning | grep -v "s+=quad"
+
+Response:
+
+{"returncode":0,"stdout":"n | exact lambda_n | on-line zeros<=600 | off-line zeros | tail(q=5,assumed on-line) | total | rel.err\n  1     0.097636     0.095031  +0.000697   0.001901     0.097629 7.18e-05\n  2     0.388826     0.378404  +0.002787   0.007606     0.388798 7.20e-05\n  5     2.356960     2.291830  +0.017418   0.047537     2.356786 7.41e-05\n 10     8.489723     8.229239  +0.069637   0.190148     8.489025 8.23e-05\n 20    24.129772    23.088401  +0.278002   0.760578    24.126982 1.16e-04\n  the requested tolerance from being achieved.  The error may be \n  underestimated.\n 50    83.502190    77.018118  +1.713811   4.752919    83.484848 2.08e-04\n100   195.837982   170.239611  +6.528513  19.001705   195.769830 3.48e-04\n150   327.982846   271.564123 +13.552463  42.716478   327.833064 4.57e-04\n  If increasing the limit yields no improvement it is advised to analyze \n  the integrand in order to determine the difficulties.  If the position of a \n  local difficulty can be determined (singularity, discontinuity) one will \n  probably gain from splitting up the interval and calling the integrator \n  on the subranges.  Perhaps a special-purpose integrator should be used.\nmax relative error over n<=150: 4.57e-04 at n=150\nsame, omitting off-line zeros' special terms (treating them as absent): max rel error 4.18e-02\n","stderr":""}

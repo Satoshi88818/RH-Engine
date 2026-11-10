@@ -1,0 +1,55 @@
+cd /home/squire && cat > li_dh3.py << 'EOF'
+import numpy as np, json
+EG=np.euler_gamma
+off=np.load('dhz_offline.npy'); on=np.load('dhz_online_refined_all.npy'); lam=np.array(json.load(open('lam_dh.json')))
+def phi(g): return 2*np.arctan(1/(2*g))
+def base(n): n=np.asarray(n,float); return n/2*(np.log(n)-1+EG-np.log(2*np.pi/5))
+# --- (1) effect of the off-line zeros at n<=150: actual vs same zeros moved onto the line
+def off_terms(n):
+    s=0
+    for r in off:
+        for rho in (r,1-r.conjugate()):
+            w=1-1/rho; s=s+2*np.real(1-np.exp(n*np.log(w)))
+    return s
+def onl_equiv(n):
+    return sum(4*(1-np.cos(n*phi(r.imag))) for r in off)
+n=np.arange(1,151)
+d=np.array([off_terms(k)-onl_equiv(k) for k in n])
+print("n<=150: excess of the 14 off-line quadruples over the same zeros placed on the line:")
+for k in [1,10,50,100,150]: print("   n=%3d excess=%+.5f  (lambda_n=%.4f, relative %+.2e)"%(k,d[k-1],lam[k-1],d[k-1]/lam[k-1]))
+# --- (2) first n where lambda_n < 0 : base(n) + excess(n)
+chunk=400000; found=None; n0=1
+log_w=[np.log(1-1/rho) for r in off for rho in (r,1-r.conjugate())]
+import math
+def total(nn):
+    nn=np.asarray(nn,float); t=base(nn)
+    for r in off:
+        for rho in (r,1-r.conjugate()):
+            t=t+2*np.real(1-np.exp(nn*np.log(1-1/rho)))
+        t=t-4*(1-np.cos(nn*phi(r.imag)))
+    return t
+for lo in range(1000,6_000_000,chunk):
+    nn=np.arange(lo,lo+chunk,dtype=float); t=total(nn)
+    idx=np.where(t<0)[0]
+    if len(idx): found=int(nn[idx[0]]); break
+print("first n with lambda_n<0 (asymptotic baseline + off-line excess): n =",found)
+if found:
+    for scale,lab in [(0.95,"baseline -5%"),(1.05,"baseline +5%")]:
+        for lo in range(1000,6_000_000,chunk):
+            nn=np.arange(lo,lo+chunk,dtype=float); t=total(nn)-base(nn)+scale*base(nn)
+            idx=np.where(t<0)[0]
+            if len(idx): print("   with",lab,": first negative n =",int(nn[idx[0]])); break
+    # dominant zero
+    best=max(off,key=lambda r: np.log(abs((1-1/(1-r.conjugate()))))) 
+    print("dominant zero (largest log|w|):",best, " log|w|=%.3e"%np.log(abs(1-1/(1-best.conjugate()))))
+    # n* Section-8 style estimate: 2|w|^n = base(n) for the dominant zero
+    lw=np.log(abs(1-1/(1-best.conjugate()))); 
+    nn=np.linspace(1e4,5e6,2000000); star=nn[np.argmax(2*np.exp(lw*nn)>=base(nn))]
+    print("amplitude-crossing estimate n* (2|w|^n = base):",int(star))
+    print("Section-8 scaling gamma^2/(2beta-1)*log: ", int(best.imag**2/(2*best.real-1)*np.log(best.imag**2)))
+EOF
+python3 li_dh3.py
+
+Response:
+
+{"returncode":0,"stdout":"n<=150: excess of the 14 off-line quadruples over the same zeros placed on the line:\n   n=  1 excess=-0.00000  (lambda_n=0.0976, relative -1.24e-07)\n   n= 10 excess=-0.00000  (lambda_n=8.4897, relative -1.42e-07)\n   n= 50 excess=-0.00003  (lambda_n=83.5022, relative -3.32e-07)\n   n=100 excess=-0.00008  (lambda_n=195.8380, relative -4.23e-07)\n   n=150 excess=-0.00010  (lambda_n=327.9828, relative -3.05e-07)\nfirst n with lambda_n<0 (asymptotic baseline + off-line excess): n = 328997\n   with baseline -5% : first negative n = 327390\n   with baseline +5% : first negative n = 330078\ndominant zero (largest log|w|): (0.8085171824566374+85.6993484853776j)  log|w|=4.201e-05\namplitude-crossing estimate n* (2|w|^n = base): 328666\nSection-8 scaling gamma^2/(2beta-1)*log:  105954\n","stderr":""}
