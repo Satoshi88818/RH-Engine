@@ -1,0 +1,29 @@
+cd /home/squire && python3 - << 'EOF'
+import numpy as np
+from mpmath import mp, mpf, mpc
+from dh import f, df
+mp.dps=25
+b=np.load('b1e7.npy'); n=np.arange(1,2000001,dtype=float)
+for s in [1.5,2.0,3.0]:
+    ser=np.sum(b[1:2000001]*n**(-s))
+    exact=-complex(df(mpc(s)))/complex(f(mpc(s)))
+    print(f"s={s}: sum b(n) n^-s = {ser:.10f}   -f'/f = {exact.real:.10f}   diff={ser-exact.real:+.2e}")
+# per-coefficient check: expand -f'/f at large s via power series ratio: b(n) vs numeric inversion at n=16,18,20,25
+a=lambda k: [0,1,0.28407904384041229603,-0.28407904384041229603,-1][k%5]
+import math
+def direct(nmax=40):
+    bb=[0]*(nmax+1)
+    for k in range(1,nmax+1):
+        s=a(k)*math.log(k)
+        for m in range(2,k+1):
+            if k%m==0: s-=a(m)*bb[k//m]
+        bb[k]=s
+    return bb
+bb=direct()
+print("max |b(n)-direct| for n<=40:",max(abs(b[k]-bb[k]) for k in range(1,41)))
+print("b(15),b(16),b(17),b(18),b(20):",[round(float(b[k]),6) for k in (15,16,17,18,20)])
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"s=1.5: sum b(n) n^-s = -0.0741290136   -f'/f = -0.0741299774   diff=+9.64e-07\ns=2.0: sum b(n) n^-s = -0.0326436167   -f'/f = -0.0326436174   diff=+6.78e-10\ns=3.0: sum b(n) n^-s = -0.0014187673   -f'/f = -0.0014187673   diff=+3.26e-16\nmax |b(n)-direct| for n<=40: 6.106226635438361e-16\nb(15),b(16),b(17),b(18),b(20): [0.0, 1.38178, 0.804857, 0.887357, 0.0]\n","stderr":""}

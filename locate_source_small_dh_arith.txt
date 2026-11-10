@@ -1,0 +1,23 @@
+cd /home/squire && python3 - << 'EOF'
+import numpy as np, json
+from wu import *
+from detect import zero_side_dh   # runs the validation print; ignore
+EOF
+python3 - << 'EOF' 2>&1 | tail -25
+import numpy as np, json, sys, io, contextlib
+buf=io.StringIO()
+with contextlib.redirect_stdout(buf):
+    import detect
+from wu import *
+Tg=np.arange(20,140,4.0); a=4.0
+res=[]
+for T in Tg:
+    s=spec("D",a,T); m,p=weil_pair(s,s,a,"dh"); w=(m-p).real; z=detect.zero_side_dh(s,a).real
+    res.append(w-z)
+res=np.array(res)
+for T,r in zip(Tg,res): print(f"T={T:6.1f}  arithmetic - zero side = {r:+.3e}")
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"DH check T=85.7,a=4: arithmetic W=-3.66248526  zero-side=-3.66261181  diff=1.3e-04\ngamma=  85.699 d=0.309 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +1.188 -1.832 -3.663 -6.463 -10.619 -16.863 -26.240 | first negative a: 3.0 | zeta W>0 at all a: True [7s]\ngamma= 114.163 d=0.151 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +2.201 -0.193 -0.719 -1.218 -1.812 -2.575 -3.513 | first negative a: 3.0 | zeta W>0 at all a: True [14s]\ngamma= 166.479 d=0.074 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +2.651 +0.053 -0.131 -0.273 -0.396 -0.560 -0.739 | first negative a: 4.0 | zeta W>0 at all a: True [21s]\ngamma= 176.702 d=0.224 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +3.466 +0.028 -1.737 -2.912 -4.567 -6.759 -9.717 | first negative a: 4.0 | zeta W>0 at all a: True [27s]\ngamma= 240.405 d=0.370 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +3.081 -1.390 -5.575 -10.551 -18.303 -30.990 -51.697 | first negative a: 3.0 | zeta W>0 at all a: True [34s]\ngamma= 320.876 d=0.320 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +3.755 -1.118 -3.977 -7.048 -11.749 -18.857 -29.704 | first negative a: 3.0 | zeta W>0 at all a: True [41s]\ngamma= 331.050 d=0.268 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +3.962 +0.749 -2.006 -4.514 -7.186 -11.039 -16.527 | first negative a: 4.0 | zeta W>0 at all a: True [48s]\ngamma= 366.641 d=0.129 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +5.170 +1.788 -0.332 -0.827 -1.249 -1.791 -2.416 | first negative a: 4.0 | zeta W>0 at all a: True [55s]\ngamma= 411.797 d=0.316 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +3.832 +0.270 -3.073 -6.809 -11.345 -18.139 -28.503 | first negative a: 4.0 | zeta W>0 at all a: True [62s]\ngamma= 440.485 d=0.209 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +4.796 +1.189 -0.977 -2.499 -3.806 -5.614 -7.992 | first negative a: 4.0 | zeta W>0 at all a: True [70s]\ngamma= 531.280 d=0.347 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +4.408 -0.919 -4.755 -8.826 -15.003 -24.816 -40.293 | first negative a: 3.0 | zeta W>0 at all a: True [77s]\ngamma= 548.907 d=0.230 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +5.214 +1.974 -1.114 -3.034 -4.820 -7.155 -10.381 | first negative a: 4.0 | zeta W>0 at all a: True [84s]\ngamma= 566.510 d=0.287 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +5.000 +1.826 -2.379 -5.310 -8.578 -13.417 -20.431 | first negative a: 4.0 | zeta W>0 at all a: True [91s]\ngamma= 595.023 d=0.083 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +5.897 +0.887 -0.127 -0.301 -0.498 -0.691 -0.927 | first negative a: 4.0 | zeta W>0 at all a: True [98s]\nT=  40.0  arithmetic - zero side = -7.483e-06\nT=  44.0  arithmetic - zero side = -8.923e-06\nT=  48.0  arithmetic - zero side = +2.389e-04\nT=  52.0  arithmetic - zero side = -2.264e-04\nT=  56.0  arithmetic - zero side = +1.258e-02\nT=  60.0  arithmetic - zero side = +5.695e-03\nT=  64.0  arithmetic - zero side = -3.008e-03\nT=  68.0  arithmetic - zero side = -4.883e-02\nT=  72.0  arithmetic - zero side = +5.389e-03\nT=  76.0  arithmetic - zero side = +1.267e-02\nT=  80.0  arithmetic - zero side = -1.679e-02\nT=  84.0  arithmetic - zero side = -3.422e-03\nT=  88.0  arithmetic - zero side = +1.188e-02\nT=  92.0  arithmetic - zero side = -1.341e-02\nT=  96.0  arithmetic - zero side = -9.334e-04\nT= 100.0  arithmetic - zero side = +2.237e-02\nT= 104.0  arithmetic - zero side = -8.560e-03\nT= 108.0  arithmetic - zero side = -1.682e-02\nT= 112.0  arithmetic - zero side = -2.394e-02\nT= 116.0  arithmetic - zero side = +6.835e-03\nT= 120.0  arithmetic - zero side = +9.017e-03\nT= 124.0  arithmetic - zero side = -7.899e-03\nT= 128.0  arithmetic - zero side = -7.807e-04\nT= 132.0  arithmetic - zero side = +1.719e-02\nT= 136.0  arithmetic - zero side = +1.429e-02\n","stderr":""}

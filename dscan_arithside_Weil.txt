@@ -1,0 +1,39 @@
+cd /home/squire && cat > detect.py << 'EOF'
+import numpy as np, json, time
+from wu import *
+def phihat_c(r,s,a):
+    r=np.asarray(r,dtype=complex)[...,None]; al,nu=s; z=r+nu
+    with np.errstate(divide='ignore',invalid='ignore'):
+        v=np.where(np.abs(z)<1e-12,2*a+0j,2*np.sin(a*z)/z)
+    return np.sum(al*v,axis=-1)
+def h_of(z,s,a):
+    z=np.asarray(z,dtype=complex)
+    return phihat_c(z,s,a)*np.conj(phihat_c(np.conj(z),s,a))
+on=np.load('dhz_online_refined_all.npy'); off=np.load('dhz_offline.npy')
+gz=np.array(json.load(open('zeros.json')))
+def zero_side_dh(s,a):
+    z=list(on)+list(-on)
+    for r in off:
+        g,d=r.imag,r.real-0.5; z+=[g-1j*d,g+1j*d,-g-1j*d,-g+1j*d]
+    return np.sum(h_of(np.array(z),s,a))
+# --- validation on DH at one setting
+T=85.7;a=4.0;s=spec("D",a,T); m,p=weil_pair(s,s,a,"dh")
+print("DH check T=85.7,a=4: arithmetic W=%.8f  zero-side=%.8f  diff=%.1e"%((m-p).real,zero_side_dh(s,a).real,abs(m-p-zero_side_dh(s,a))),flush=True)
+# --- detection scan
+AS=[2.0,3.0,4.0,5.0,6.0,7.0,8.0]
+rows=[]; t0=time.time()
+for r in off:
+    g,d=r.imag,r.real-0.5; wz=[]; wd=[]
+    for a in AS:
+        s=spec("D",a,g); m,p=weil_pair(s,s,a,"dh"); wd.append((m-p).real)
+        mz,pz=weil_pair(s,s,a,"zeta") if g<1400 else (0,0); wz.append((mz-pz).real)
+    rows.append((g,d,wd,wz))
+    flag=[i for i,x in enumerate(wd) if x<0]
+    print(f"gamma={g:8.3f} d={d:.3f} | DH W by a={AS}: "+" ".join(f"{x:+.3f}" for x in wd)+f" | first negative a: {AS[flag[0]] if flag else 'none<=8'} | zeta W>0 at all a: {all(x>0 for x in wz)} [{time.time()-t0:.0f}s]",flush=True)
+json.dump([(g,d,wd,wz) for g,d,wd,wz in rows],open('detect_rows.json','w'))
+EOF
+python3 detect.py
+
+Response:
+
+{"returncode":0,"stdout":"DH check T=85.7,a=4: arithmetic W=-3.66248526  zero-side=-3.66261181  diff=1.3e-04\ngamma=  85.699 d=0.309 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +1.188 -1.832 -3.663 -6.463 -10.619 -16.863 -26.240 | first negative a: 3.0 | zeta W>0 at all a: True [7s]\ngamma= 114.163 d=0.151 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +2.201 -0.193 -0.719 -1.218 -1.812 -2.575 -3.513 | first negative a: 3.0 | zeta W>0 at all a: True [14s]\ngamma= 166.479 d=0.074 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +2.651 +0.053 -0.131 -0.273 -0.396 -0.560 -0.739 | first negative a: 4.0 | zeta W>0 at all a: True [21s]\ngamma= 176.702 d=0.224 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +3.466 +0.028 -1.737 -2.912 -4.567 -6.759 -9.717 | first negative a: 4.0 | zeta W>0 at all a: True [27s]\ngamma= 240.405 d=0.370 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +3.081 -1.390 -5.575 -10.551 -18.303 -30.990 -51.697 | first negative a: 3.0 | zeta W>0 at all a: True [34s]\ngamma= 320.876 d=0.320 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +3.755 -1.118 -3.977 -7.048 -11.749 -18.857 -29.704 | first negative a: 3.0 | zeta W>0 at all a: True [41s]\ngamma= 331.050 d=0.268 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +3.962 +0.749 -2.006 -4.514 -7.186 -11.039 -16.527 | first negative a: 4.0 | zeta W>0 at all a: True [48s]\ngamma= 366.641 d=0.129 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +5.170 +1.788 -0.332 -0.827 -1.249 -1.791 -2.416 | first negative a: 4.0 | zeta W>0 at all a: True [55s]\ngamma= 411.797 d=0.316 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +3.832 +0.270 -3.073 -6.809 -11.345 -18.139 -28.503 | first negative a: 4.0 | zeta W>0 at all a: True [61s]\ngamma= 440.485 d=0.209 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +4.796 +1.189 -0.977 -2.499 -3.806 -5.614 -7.992 | first negative a: 4.0 | zeta W>0 at all a: True [68s]\ngamma= 531.280 d=0.347 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +4.408 -0.919 -4.755 -8.826 -15.003 -24.816 -40.293 | first negative a: 3.0 | zeta W>0 at all a: True [75s]\ngamma= 548.907 d=0.230 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +5.214 +1.974 -1.114 -3.034 -4.820 -7.155 -10.381 | first negative a: 4.0 | zeta W>0 at all a: True [82s]\ngamma= 566.510 d=0.287 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +5.000 +1.826 -2.379 -5.310 -8.578 -13.417 -20.431 | first negative a: 4.0 | zeta W>0 at all a: True [89s]\ngamma= 595.023 d=0.083 | DH W by a=[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]: +5.897 +0.887 -0.127 -0.301 -0.498 -0.691 -0.927 | first negative a: 4.0 | zeta W>0 at all a: True [96s]\n","stderr":""}

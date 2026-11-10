@@ -1,0 +1,77 @@
+cd /home/squire && cat > wu.py << 'EOF'
+import numpy as np, json
+from numpy.polynomial.legendre import leggauss
+from scipy.special import exp1
+Lam=np.load('Lam1e7.npy'); bco=np.load('b1e7.npy')
+LOG_PI=np.log(np.pi)
+def spec(kind,a,t):
+    """phi(v)= 1_{|v|<=a} sum_s alpha_s exp(i nu_s v) ; kind 'W' Hann packet, 'D' derivative packet (i*omega')"""
+    k=np.pi/a
+    if kind=="W": al=np.array([0.5,0.25,0.25]); ka=np.array([0.0,k,-k])
+    else:         al=np.array([-k/4,k/4]);       ka=np.array([k,-k])
+    return al.astype(complex), ka-t
+def I(mu,a,u):
+    mu=np.asarray(mu,dtype=float)
+    out=np.empty(np.broadcast(mu,u).shape,dtype=complex)
+    mu_b,u_b=np.broadcast_arrays(mu,u)
+    small=np.abs(mu_b)<1e-12
+    with np.errstate(divide='ignore',invalid='ignore'):
+        v=(np.exp(1j*mu_b*(a-u_b))-np.exp(-1j*mu_b*a))/(1j*mu_b)
+    return np.where(small,(2*a-u_b)+0j,v)
+def g_cross(u,sj,sk,a):
+    """g_jk(u)=int phi_j(v+u) conj(phi_k(v)) dv for u>=0 (u<=2a)"""
+    u=np.asarray(u,dtype=float); out=np.zeros(u.shape,dtype=complex)
+    for aj,nj in zip(*sj):
+        for ak,nk in zip(*sk):
+            out+=aj*np.conj(ak)*np.exp(1j*nj*u)*I(nj-nk,a,u)
+    return out
+def g_sym(u,sj,sk,a):
+    # (g_jk(u)+g_jk(-u))/2 with g_jk(-u)=conj(g_kj(u))
+    return 0.5*(g_cross(u,sj,sk,a)+np.conj(g_cross(u,sk,sj,a)))
+def quad_nodes(L,panel=0.05,npts=24):
+    x,w=leggauss(npts); P=int(np.ceil(L/panel)); edges=np.linspace(0,L,P+1)
+    U=[];W=[]
+    for lo,hi in zip(edges[:-1],edges[1:]):
+        U.append(0.5*(hi-lo)*(x+1)+lo); W.append(0.5*(hi-lo)*w)
+    return np.concatenate(U),np.concatenate(W)
+def weil_pair(sj,sk,a,kind):
+    """returns (main, prime) for the linear functional W(g_sym)=main-prime;  kind 'zeta' or 'dh' """
+    L=2*a; U,Wt=quad_nodes(L)
+    gs=lambda u: g_sym(u,sj,sk,a)
+    g0=gs(np.array([0.0]))[0]
+    gu=gs(U)
+    if kind=="zeta":
+        pole=4*np.sum(Wt*gu*np.cosh(U/2))
+        arch=np.sum(Wt*(g0*np.exp(-2*U)/U-2*np.exp(-U/2)*gu/(1-np.exp(-2*U))))+g0*exp1(2*L)-g0*LOG_PI
+        c=Lam
+    else:
+        pole=0
+        arch=np.sum(Wt*(g0*np.exp(-2*U)/U-2*np.exp(-1.5*U)*gu/(1-np.exp(-2*U))))+g0*exp1(2*L)+g0*np.log(5/np.pi)
+        c=bco
+    N=int(min(np.floor(np.exp(L)),len(c)-1)); n=np.arange(1,N+1); cn=c[1:N+1]
+    nz=cn!=0; n=n[nz]; cn=cn[nz]
+    gn=gs(np.log(n.astype(float)))
+    prime=2*np.sum(cn/np.sqrt(n)*gn)
+    return pole+arch, prime
+def phihat(r,s,a):
+    r=np.asarray(r,dtype=float)[...,None]; al,nu=s
+    z=r+nu
+    with np.errstate(divide='ignore',invalid='ignore'):
+        v=np.where(np.abs(z)<1e-12,2*a,2*np.sin(a*z)/z)
+    return np.sum(al*v,axis=-1)
+EOF
+python3 - << 'EOF'
+import numpy as np, json
+from wu import *
+g=np.array(json.load(open('zeros.json')))
+zz=np.concatenate([g,-g])
+for T,a in [(50.0,2.0),(50.0,3.0),(100.0,3.0),(100.0,4.0)]:
+    s=spec("D",a,T)
+    main,prime=weil_pair(s,s,a,"zeta"); W=(main-prime)
+    zero=np.sum(np.abs(phihat(zz,s,a))**2)
+    print(f"zeta  T={T:5.1f} a={a}: arithmetic W={W.real:+.10f} (main {main.real:+.6f}, prime {prime.real:+.6f}, imag {W.imag:+.1e})  zero-side={zero:+.10f}  diff={abs(W-zero):.1e}")
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"zeta  T= 50.0 a=2.0: arithmetic W=+1.7170699924 (main +2.558244, prime +0.841174, imag +0.0e+00)  zero-side=+1.7170699917  diff=6.6e-10\nzeta  T= 50.0 a=3.0: arithmetic W=+0.4517844972 (main +1.705723, prime +1.253938, imag +0.0e+00)  zero-side=+0.4517844971  diff=1.3e-10\nzeta  T=100.0 a=3.0: arithmetic W=+3.6618180796 (main +2.275959, prime -1.385859, imag +0.0e+00)  zero-side=+3.6618180794  diff=1.3e-10\nzeta  T=100.0 a=4.0: arithmetic W=+0.8971364873 (main +1.706984, prime +0.809847, imag +0.0e+00)  zero-side=+0.8971364872  diff=4.2e-11\n","stderr":""}
