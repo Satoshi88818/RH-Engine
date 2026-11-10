@@ -1,0 +1,40 @@
+cd /home/squire && sed -i "s#dhz_online_refined.npy#dhz_online_true.npy#" weil.py && grep -n "dhz_online" weil.py | head -3 && python3 - << 'EOF' 2>&1 | grep -v "^gamma=\|^DH check"
+import numpy as np, json, io, contextlib
+on=np.load('dhz_online_true.npy'); off=np.load('dhz_offline.npy')
+from kmt import K
+# ---- 12.2 pair-correlation blocks
+def Zset_DH(T):
+    L=np.log(T); z=list(-on[on<=T]*L/(2*np.pi)+0j)
+    for r in off:
+        if r.imag<=T:
+            for rho in (r,1-r.conjugate()): z.append(1j*(rho-0.5)*L/(2*np.pi))
+    return np.array(z),L
+print("12.2 table")
+for T in [200,400,600]:
+    z,L=Zset_DH(T); S=np.sum(K(z[:,None]-z[None,:])**2).real; N=len(z); nr=np.sum(np.abs(z.imag)<1e-12)
+    print(f" T={T}: N={N} S/N={S/N:.4f} certified={2-S/N:.4f} on-line fraction={nr/N:.3f}")
+T=600.0; L=np.log(T)
+zon=-on[on<=T]*L/(2*np.pi)+0j
+zoff=np.array([1j*(rho-0.5)*L/(2*np.pi) for r in off for rho in (r,1-r.conjugate())])
+blk=lambda a,b: np.sum(K(a[:,None]-b[None,:])**2).real
+Soo,Sff,Sof,Sfo=blk(zon,zon),blk(zoff,zoff),blk(zon,zoff),blk(zoff,zon)
+print(" blocks: on-on %.1f  off-off %.1f  cross %.1f+%.1f  total %.1f ; S/N_on=%.4f ; extra from off-line=%.1f"%(Soo,Sff,Sof,Sfo,Soo+Sff+Sof+Sfo,Soo/len(zon),Sff+Sof+Sfo))
+print(" conj-partner term K(z-zbar)^2 mean %.2f"%np.mean(K(2j*(np.array([r.real-0.5 for r in off])*L/(2*np.pi)))**2).real)
+# model comparison
+from pcl import tables, build_Phi, RHOS, R
+xi,K2=tables("unsmoothed"); Phi=build_Phi(xi,K2)
+def pred(gam,T,q):
+    L=np.log(T); z=gam*L/(2*np.pi); zT=T*L/(2*np.pi)
+    rho=np.clip(np.log(q*gam/(2*np.pi))/L,RHOS[0],RHOS[-1]); a=np.minimum(z,R); b=np.minimum(zT-z,R)
+    idx=np.clip(np.searchsorted(RHOS,rho)-1,0,len(RHOS)-2); w=(rho-RHOS[idx])/(RHOS[idx+1]-RHOS[idx]); tot=np.zeros(len(gam))
+    for i in range(len(RHOS)-1):
+        m=idx==i
+        if not m.any(): continue
+        for u in (a[m],b[m]): tot[m]+=rho[m]*((1-w[m])*np.interp(u,xi,Phi[i])+w[m]*np.interp(u,xi,Phi[i+1]))
+    return np.mean(1+tot)
+print(" model for on-line only: q=5 density %.4f ; zeta density %.4f"%(pred(on,T,5),pred(on,T,1)))
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"50:        on=np.load('dhz_online_true.npy'); off=np.load('dhz_offline.npy')\n12.2 table\n T=200: N=130 S/N=1.2099 certified=0.7901 on-line fraction=0.938\n T=400: N=303 S/N=1.2571 certified=0.7429 on-line fraction=0.947\n T=600: N=492 S/N=1.2856 certified=0.7144 on-line fraction=0.943\n blocks: on-on 535.7  off-off 93.6  cross 1.6+1.6  total 632.5 ; S/N_on=1.1545 ; extra from off-line=96.8\n conj-partner term K(z-zbar)^2 mean 2.34\nkernel unsmoothed\n  T=   1000 measured S/N=1.0892  GUE-prediction=1.1226  diff=-0.0334\n  T=  10000 measured S/N=1.1352  GUE-prediction=1.1598  diff=-0.0246\n  T= 100000 measured S/N=1.1695  GUE-prediction=1.1862  diff=-0.0167\n  T= 300000 measured S/N=1.1823  GUE-prediction=1.1962  diff=-0.0139\nkernel 0.02\n  T=   1000 measured S/N=1.0938  GUE-prediction=1.1285  diff=-0.0347\n  T=  10000 measured S/N=1.1419  GUE-prediction=1.1675  diff=-0.0256\n  T= 100000 measured S/N=1.1775  GUE-prediction=1.1952  diff=-0.0177\n  T= 300000 measured S/N=1.1909  GUE-prediction=1.2057  diff=-0.0148\nkernel 0.1\n  T=   1000 measured S/N=1.1147  GUE-prediction=1.1544  diff=-0.0397\n  T=  10000 measured S/N=1.1727  GUE-prediction=1.2014  diff=-0.0287\n  T= 100000 measured S/N=1.2147  GUE-prediction=1.2348  diff=-0.0200\n  T= 300000 measured S/N=1.2305  GUE-prediction=1.2474  diff=-0.0168\n model for on-line only: q=5 density 1.2287 ; zeta density 1.1085\n","stderr":""}
