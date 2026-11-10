@@ -1,0 +1,26 @@
+cd /home/squire && python3 - << 'EOF' 2>&1 | grep -v "^gamma=\|^DH check"
+import numpy as np, io, contextlib
+buf=io.StringIO()
+with contextlib.redirect_stdout(buf):
+    import detect
+from wu import *
+print("residual (arithmetic - zero side), DH, probe D at T; columns a (N=e^2a)")
+As=[0.8,1.0,1.3,1.6,2.0,2.5,3.0,4.0]
+print("T     "+"  ".join(f"a={a}(N={int(np.exp(2*a))})" for a in As))
+for T in [20.0,45.0,68.0,100.0]:
+    row=[]
+    for a in As:
+        s=spec("D",a,T); m,p=weil_pair(s,s,a,"dh"); row.append((m-p).real-detect.zero_side_dh(s,a).real)
+    print(f"{T:5.1f} "+"  ".join(f"{x:+.1e}" for x in row))
+print("same for zeta (zeros.json):")
+gz=np.array(__import__('json').load(open('zeros.json'))); zz=np.concatenate([gz,-gz])
+for T in [20.0,45.0,68.0,100.0]:
+    row=[]
+    for a in As:
+        s=spec("D",a,T); m,p=weil_pair(s,s,a,"zeta"); row.append((m-p).real-np.sum(np.abs(phihat(zz,s,a))**2))
+    print(f"{T:5.1f} "+"  ".join(f"{x:+.1e}" for x in row))
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"residual (arithmetic - zero side), DH, probe D at T; columns a (N=e^2a)\nT     a=0.8(N=4)  a=1.0(N=7)  a=1.3(N=13)  a=1.6(N=24)  a=2.0(N=54)  a=2.5(N=148)  a=3.0(N=403)  a=4.0(N=2980)\n 20.0 +1.5e-06  +7.2e-07  +4.6e-08  -1.5e-08  -1.1e-08  +6.9e-09  -3.0e-09  +2.2e-09\n 45.0 +3.1e-03  +1.8e-03  -1.7e-04  +1.7e-04  -2.1e-05  -2.1e-05  -1.4e-05  -5.1e-06\n 68.0 +2.3e-03  +5.6e-03  +7.0e-03  +1.7e-03  -7.8e-03  -2.2e-02  -3.6e-02  -4.9e-02\n100.0 -1.7e-03  +3.4e-03  +1.1e-02  +1.1e-02  +5.7e-03  +8.1e-03  +1.6e-02  +2.2e-02\nsame for zeta (zeros.json):\n 20.0 +2.5e-08  +1.0e-08  +3.6e-09  +1.6e-09  +6.5e-10  +2.7e-10  +1.3e-10  +4.1e-11\n 45.0 +2.6e-08  +1.0e-08  +3.6e-09  +1.6e-09  +6.5e-10  +2.7e-10  +1.3e-10  +4.1e-11\n 68.0 +2.6e-08  +1.1e-08  +3.7e-09  +1.6e-09  +6.6e-10  +2.8e-10  +1.3e-10  +4.2e-11\n100.0 +2.6e-08  +1.1e-08  +3.7e-09  +1.6e-09  +6.7e-10  +2.7e-10  +1.3e-10  +4.2e-11\n","stderr":""}

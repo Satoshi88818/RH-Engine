@@ -1,0 +1,18 @@
+cd /home/squire && python3 - << 'EOF'
+import numpy as np
+from mpmath import mp, mpc, mpf, findroot
+import dh
+on=np.load('dhz_online_refined_all.npy')
+print("precision test of Lambda(1/2+it) at t=68.352 (dps 15/30/50):")
+for d in (15,30,50):
+    mp.dps=d; v=dh.G(mpc(0.5,mpf('68.352'))); print(d, mp.nstr(v,12))
+mp.dps=40
+for g0 in [66.658,68.352,68.934,71.433]:
+    i=np.argmin(abs(on-g0)); g=on[i]
+    r=findroot(lambda t: dh.G(mpc(0.5,t)).real,mpf(g),tol=1e-30,maxsteps=100)
+    print("zero near %.3f: refined list %.12f ; dps40 root %.12f ; diff %.2e ; |Im/Re| of Lambda there: %.1e"%(g0,g,float(r),float(r)-g,abs(dh.G(mpc(0.5,r)).imag)))
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"precision test of Lambda(1/2+it) at t=68.352 (dps 15/30/50):\n15 (-3.55878267819e-25 + 5.77669838389e-38j)\n30 (-3.55878267819e-25 + 1.85015232505e-44j)\n50 (-3.55878267819e-25 + 1.85015232985e-44j)\nzero near 66.658: refined list 66.658412820934 ; dps40 root 66.655757840828 ; diff -2.65e-03 ; |Im/Re| of Lambda there: 4.3e-44\nzero near 68.352: refined list 68.352221635767 ; dps40 root 68.347099472688 ; diff -5.12e-03 ; |Im/Re| of Lambda there: 1.9e-44\nzero near 68.934: refined list 68.934468190760 ; dps40 root 68.936700215058 ; diff 2.23e-03 ; |Im/Re| of Lambda there: 6.2e-45\nzero near 71.433: refined list 71.433353324110 ; dps40 root 71.429835774129 ; diff -3.52e-03 ; |Im/Re| of Lambda there: 1.9e-45\n","stderr":""}

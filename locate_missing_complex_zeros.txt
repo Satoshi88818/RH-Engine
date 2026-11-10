@@ -1,0 +1,33 @@
+cd /home/squire && python3 - << 'EOF' 2>&1 | grep -v "^gamma=\|^DH check"
+import numpy as np, io, contextlib, json
+buf=io.StringIO()
+with contextlib.redirect_stdout(buf):
+    import detect
+from wu import *
+Ts=np.arange(30,131,2.5); As=[1.0,1.5,2.0,2.5,3.0,4.0]
+R=[];cfg=[]
+for a in As:
+    for T in Ts:
+        s=spec("D",a,T); m,p=weil_pair(s,s,a,"dh"); R.append((m-p).real-detect.zero_side_dh(s,a).real); cfg.append((T,a))
+R=np.array(R); np.save('res_cfg.npy',np.array(cfg)); np.save('res_R.npy',R)
+gam=np.arange(20,140,0.1); dd=np.arange(0.0,1.6,0.1)
+Dic=np.zeros((len(cfg),len(gam)*len(dd))); lab=[]
+for i,(T,a) in enumerate(cfg):
+    s=spec("D",a,T); col=0
+    for d in dd:
+        z=gam+1j*d
+        h=detect.h_of(z,s,a)+detect.h_of(gam-1j*d,s,a)           # zeros g+id and g-id (upper-half-plane gamma>0 pair); symmetric -g partners negligible
+        Dic[i,col:col+len(gam)]=2*np.real(h)                      # both conjugates, matches 2 zeros (rho and 1-rho) times 2? (see below)
+        col+=len(gam)
+lab=[(g,d) for d in dd for g in gam]
+res=R.copy(); chosen=[]
+print("rms residual before:",np.sqrt(np.mean(R**2)))
+for it in range(8):
+    nrm=np.sqrt((Dic**2).sum(0))+1e-30; corr=(Dic.T@res)/nrm; k=np.argmax(np.abs(corr)); chosen.append(k)
+    A=Dic[:,chosen]; coef,*_=np.linalg.lstsq(A,R,rcond=None); res=R-A@coef
+    print(f"step {it+1}: atom gamma={lab[k][0]:.1f}, d={lab[k][1]:.1f}; coefs={np.round(coef,2)}; rms={np.sqrt(np.mean(res**2)):.2e}")
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"rms residual before: 0.007824480001324755\nstep 1: atom gamma=102.7, d=0.8; coefs=[0.]; rms=7.43e-03\nstep 2: atom gamma=95.8, d=0.7; coefs=[ 0. -0.]; rms=7.01e-03\nstep 3: atom gamma=56.8, d=0.6; coefs=[ 0. -0.  0.]; rms=6.67e-03\nstep 4: atom gamma=99.2, d=0.8; coefs=[ 0. -0.  0.  0.]; rms=6.39e-03\nstep 5: atom gamma=136.7, d=0.9; coefs=[ 0.  -0.   0.   0.  -0.1]; rms=6.11e-03\nstep 6: atom gamma=117.8, d=1.0; coefs=[ 0.  -0.   0.   0.  -0.1 -0. ]; rms=5.83e-03\nstep 7: atom gamma=68.7, d=0.7; coefs=[ 0.  -0.   0.   0.  -0.1 -0.  -0. ]; rms=5.58e-03\nstep 8: atom gamma=50.7, d=0.5; coefs=[ 0.  -0.   0.   0.  -0.1 -0.  -0.  -0. ]; rms=5.34e-03\n","stderr":""}
