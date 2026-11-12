@@ -1,0 +1,75 @@
+cd /home/squire && cat > ccm_hp.py << 'EOF'
+import numpy as np, json, time
+from mpmath import mp, mpf, mpc, matrix, eigsy, exp, cos, sin, pi, log, sqrt, cosh, e1, gamma, zeta, findroot, nstr
+mp.dps=60
+LAM={}
+def lam_table(N):
+    for n in range(2,N+1):
+        m=n; p=None
+        for q in range(2,int(n**0.5)+1):
+            if m%q==0: p=q; break
+        if p is None: p=n
+        mm=n
+        while mm%p==0: mm//=p
+        LAM[n]=log(mpf(p)) if mm==1 else mpf(0)
+lam_table(2000)
+from mpmath import calculus
+def gl_nodes(L,npts):
+    # Gauss-Legendre on [0,L] at working precision (panels)
+    xs,ws=mp.gauss_quadrature(npts,'legendre') if hasattr(mp,'gauss_quadrature') else (None,None)
+    return xs,ws
+def build(a,K,npan=24,npts=12):
+    a=mpf(a); L=2*a
+    # panelled Gauss-Legendre nodes
+    from mpmath.calculus.quadrature import GaussLegendre
+    gl=GaussLegendre(mp); nodes=gl.calc_nodes(5,mp.prec)    # degree 5 -> 3*2^4=48 nodes per unit interval
+    pan=npan; U=[];W=[]
+    for i in range(pan):
+        lo=L*i/pan; hi=L*(i+1)/pan
+        for (x,w) in nodes:   # nodes on [-1,1]
+            U.append((hi-lo)/2*x+(hi+lo)/2); W.append((hi-lo)/2*w)
+    nu=[[0]]+[[k*pi/a,-k*pi/a] for k in range(1,K+1)]
+    al=[[mpf(1)]]+[[mpf(1)/2,mpf(1)/2] for k in range(1,K+1)]
+    def I(mu,u):
+        if abs(mu)<mpf(10)**(-40): return 2*a-u
+        return (exp(1j*mu*(a-u))-exp(-1j*mu*a))/(1j*mu)
+    def g(j,k,u):
+        s=0
+        for aj,nj in zip(al[j],nu[j]):
+            for ak,nk in zip(al[k],nu[k]):
+                s+=aj*ak*exp(1j*nj*u)*I(nj-nk,u)
+        return s
+    def gsym(j,k,u): return ((g(j,k,u)+g(k,j,u).conjugate())/2).real
+    N=int(mp.floor(exp(L)))
+    ns=[n for n in range(2,N+1) if LAM[n]!=0]
+    A=matrix(K+1,K+1)
+    for j in range(K+1):
+        for k in range(j,K+1):
+            g0=gsym(j,k,mpf(0)); gu=[gsym(j,k,u) for u in U]
+            pole=4*sum(w*gv*cosh(u/2) for u,w,gv in zip(U,W,gu))
+            arch=sum(w*(g0*exp(-2*u)/u-2*exp(-u/2)*gv/(1-exp(-2*u))) for u,w,gv in zip(U,W,gu))+g0*e1(2*L)-g0*log(pi)
+            prime=2*sum(LAM[n]/sqrt(n)*gsym(j,k,log(mpf(n))) for n in ns)
+            A[j,k]=A[k,j]=pole+arch-prime
+    return A
+if __name__=="__main__":
+    import sys
+    a=float(sys.argv[1]); K=int(sys.argv[2]); t0=time.time()
+    A=build(a,K); G=[2*mpf(a)]+[mpf(a)]*K
+    S=matrix(K+1,K+1)
+    for i in range(K+1):
+        for j in range(K+1): S[i,j]=A[i,j]/sqrt(G[i]*G[j])
+    ev,evec=eigsy(S)
+    evs=sorted([ev[i] for i in range(K+1)])
+    print("a=%s K=%d built+eig in %.0fs"%(sys.argv[1],K,time.time()-t0))
+    print("smallest generalized eigenvalues:",[nstr(x,5) for x in evs[:8]])
+    print("largest:",nstr(evs[-1],5))
+    # save eigenvector of smallest eigenvalue
+    idx=min(range(K+1),key=lambda i: ev[i]); c=[evec[i,idx]/sqrt(G[i]) for i in range(K+1)]
+    json.dump(dict(a=a,K=K,eig=[str(x) for x in evs],c=[str(x) for x in c]),open(f"ccm_hp_{sys.argv[1]}.json","w"))
+EOF
+setsid nohup python3 ccm_hp.py 1.0 19 > ccm_hp_1.0.log 2>&1 < /dev/null &
+sleep 100; cat ccm_hp_1.0.log
+
+Response:
+
+{"returncode":0,"stdout":"","stderr":""}

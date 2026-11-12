@@ -1,0 +1,38 @@
+cd /home/squire && cat > ccm2.py << 'EOF'
+import numpy as np, io, contextlib, json, time
+from scipy.linalg import eigh
+buf=io.StringIO()
+with contextlib.redirect_stdout(buf):
+    import ccm
+    import detect
+from wu import *
+zeta_z=np.array(json.load(open('zeros.json')))[:20]
+dh_on=np.load('dhz_online_true.npy')
+rg=np.arange(0.2,48,0.01)
+def analyse(kind,a,K,truez,rmax=45):
+    A,G,sp=ccm.build(kind,a,K); ev,evec=eigh((A+A.T)/2,G)
+    scale=np.abs(ev).max(); lev=np.log10(np.maximum(np.abs(ev),1e-300))
+    # rank gap: count eigenvalues above 1e-9*scale
+    nz=ev>1e-9*scale; nneg=ev<-1e-9*scale; null=np.abs(ev)<=1e-9*scale
+    V=np.array([np.real(phihat(rg,s,a)) for s in sp])             # (K+1) x len(r)
+    Cn=evec[:,null]; F=np.sum((Cn.T@V)**2,axis=0)
+    mins=[i for i in range(1,len(rg)-1) if F[i]<F[i-1] and F[i]<F[i+1]]
+    # keep deep minima: F small relative to its median
+    thr=1e-6*np.median(F)
+    deep=[rg[i] for i in mins if F[i]<thr and rg[i]<rmax]
+    tz=truez[truez<rmax]
+    err=[min(abs(d-tz)) for d in deep]
+    miss=[z for z in tz if min(abs(z-np.array(deep)))>0.05] if len(deep) else list(tz)
+    print(f"{kind} a={a} (primes<={int(np.exp(2*a))}) K={K}: eig>tol:{int(nz.sum())} eig<-tol:{int(nneg.sum())} |eig|<=tol:{int(null.sum())}; deep minima of F: {len(deep)}; known zeros <{rmax}: {len(tz)}; max distance of minimum to a known zero: {max(err) if err else float('nan'):.4f}; known zeros with no minimum within 0.05: {np.round(miss,3)}")
+    return deep
+for a,K in [(1.0,19),(1.5,26),(2.0,33),(2.5,40),(3.0,47)]:
+    analyse("zeta",a,K,zeta_z)
+print()
+for a,K in [(1.0,19),(1.5,26),(2.0,33)]:
+    analyse("dh",a,K,dh_on)
+EOF
+python3 ccm2.py
+
+Response:
+
+{"returncode":0,"stdout":"zeta a=1.0 (primes<=7) K=19: eig>tol:16 eig<-tol:0 |eig|<=tol:4; deep minima of F: 6; known zeros <45: 8; max distance of minimum to a known zero: 0.0049; known zeros with no minimum within 0.05: [14.135 21.022]\nzeta a=1.5 (primes<=20) K=26: eig>tol:16 eig<-tol:0 |eig|<=tol:11; deep minima of F: 3; known zeros <45: 8; max distance of minimum to a known zero: 0.0029; known zeros with no minimum within 0.05: [14.135 21.022 30.425 32.935 37.586]\nzeta a=2.0 (primes<=54) K=33: eig>tol:15 eig<-tol:0 |eig|<=tol:19; deep minima of F: 1; known zeros <45: 8; max distance of minimum to a known zero: 0.0009; known zeros with no minimum within 0.05: [14.135 21.022 30.425 32.935 37.586 40.919 43.327]\nzeta a=2.5 (primes<=148) K=40: eig>tol:15 eig<-tol:0 |eig|<=tol:26; deep minima of F: 0; known zeros <45: 8; max distance of minimum to a known zero: nan; known zeros with no minimum within 0.05: [14.135 21.022 25.011 30.425 32.935 37.586 40.919 43.327]\nzeta a=3.0 (primes<=403) K=47: eig>tol:15 eig<-tol:0 |eig|<=tol:33; deep minima of F: 0; known zeros <45: 8; max distance of minimum to a known zero: nan; known zeros with no minimum within 0.05: [14.135 21.022 25.011 30.425 32.935 37.586 40.919 43.327]\n\ndh a=1.0 (primes<=7) K=19: eig>tol:20 eig<-tol:0 |eig|<=tol:0; deep minima of F: 0; known zeros <45: 19; max distance of minimum to a known zero: nan; known zeros with no minimum within 0.05: [ 5.094  8.94  12.134 14.404 17.13  19.309 22.16  23.345 26.095 27.924\n 30.159 31.964 33.7   35.891 37.455 40.163 40.683 43.081 44.947]\ndh a=1.5 (primes<=20) K=26: eig>tol:25 eig<-tol:0 |eig|<=tol:2; deep minima of F: 8; known zeros <45: 19; max distance of minimum to a known zero: 1.0870; known zeros with no minimum within 0.05: [ 5.094  8.94  12.134 14.404 17.13  19.309 22.16  23.345 26.095 27.924\n 40.163 40.683 43.081 44.947]\ndh a=2.0 (primes<=54) K=33: eig>tol:27 eig<-tol:0 |eig|<=tol:7; deep minima of F: 10; known zeros <45: 19; max distance of minimum to a known zero: 0.0045; known zeros with no minimum within 0.05: [ 5.094 12.134 14.404 17.13  19.309 23.345 26.095 27.924 31.964]\n","stderr":""}

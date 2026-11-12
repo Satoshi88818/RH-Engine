@@ -1,0 +1,101 @@
+mkdir -p /home/squire/odlyzko && cd /home/squire/odlyzko && curl -s -m 120 -L -o zeros6 https://raw.githubusercontent.com/nightbay/odzeros/master/odlyzko_data/zeros6 && wc -l zeros6 && cd /home/squire && cat > weil_form.py <<'EOF'
+"""Weil quadratic form on test functions supported in [-L, L] (multiplicative [1/lambda, lambda], L = ln lambda), from the ARITHMETIC side only:
+ M_ij = P+_i P-_j + P-_i P+_j - (ln pi + gamma) delta_ij - delta_ij ln(1 - e^{-4L}) + I_ij - 2 sum_n Lambda(n) n^{-1/2} S_ij(ln n),
+ I_ij = int_0^{2L} 2 [delta_ij e^{-2x} - S_ij(x) e^{-x/2}]/(1 - e^{-2x}) dx,
+ S_ij(x) = (C_ij(x)+C_ji(x))/2,  C_ij(x) = int psi_i(u) psi_j(u+x) du,  psi_k = sqrt((2k+1)/(2L)) P_k(u/L)   (orthonormal on [-L, L]),
+ P+-_k = int psi_k(u) e^{+-u/2} du.
+ Explicit formula:  sum over all zeros of  g^_i(gamma) conj(g^_j(gamma))  (real part)  =  M_ij."""
+import os, sys, time
+import mpmath as mp
+mp.mp.dps = int(os.environ.get("WEIL_DPS", 50))
+
+def legendre_table(N, t):
+    P = [mp.mpf(1), t]
+    for k in range(1, N): P.append(((2 * k + 1) * t * P[k] - k * P[k - 1]) / (k + 1))
+    return P[:N]
+
+class Weil:
+    def __init__(self, L, N, nq=None):
+        self.L = mp.mpf(L); self.N = N; self.nq = nq or max(N + 8, 40)
+        self.gl = self._nodes(self.nq)
+        self.scale = [mp.sqrt(mp.mpf(2 * k + 1) / (2 * self.L)) for k in range(N)]
+    def _nodes(self, n):
+        xs, ws = [], []
+        for i in range(1, n + 1):
+            x = mp.cos(mp.pi * (i - mp.mpf(1) / 4) / (n + mp.mpf(1) / 2))
+            for _ in range(100):
+                p0, p1 = mp.mpf(1), x
+                for k in range(2, n + 1): p0, p1 = p1, ((2 * k - 1) * x * p1 - (k - 1) * p0) / k
+                dp = n * (x * p1 - p0) / (x * x - 1); dx = p1 / dp; x -= dx
+                if abs(dx) < mp.mpf(10)**(-mp.mp.dps + 3): break
+            p0, p1 = mp.mpf(1), x
+            for k in range(2, n + 1): p0, p1 = p1, ((2 * k - 1) * x * p1 - (k - 1) * p0) / k
+            dp = n * (x * p1 - p0) / (x * x - 1); xs.append(x); ws.append(2 / ((1 - x * x) * dp * dp))
+        return xs, ws
+    def psi(self, u):
+        P = legendre_table(self.N, u / self.L); return [self.scale[k] * P[k] for k in range(self.N)]
+    def Pplus_minus(self):
+        xs, ws = self.gl; Pp = [mp.mpf(0)] * self.N; Pm = [mp.mpf(0)] * self.N
+        for x, w in zip(xs, ws):
+            u = self.L * x; ps = self.psi(u); ep, em = mp.exp(u / 2), mp.exp(-u / 2)
+            for k in range(self.N): Pp[k] += w * self.L * ps[k] * ep; Pm[k] += w * self.L * ps[k] * em
+        return Pp, Pm
+    def C(self, x):
+        L = self.L; a, b = -L, L - x; xs, ws = self.gl; N = self.N
+        Cm = [[mp.mpf(0)] * N for _ in range(N)]
+        if b <= a: return Cm
+        for t, w in zip(xs, ws):
+            u = (b - a) / 2 * t + (a + b) / 2; wt = w * (b - a) / 2; pi_ = self.psi(u); pj = self.psi(u + x)
+            for i in range(N):
+                wi = wt * pi_[i]
+                for j in range(N): Cm[i][j] += wi * pj[j]
+        return Cm
+    def S(self, x):
+        Cm = self.C(x); N = self.N
+        return [[(Cm[i][j] + Cm[j][i]) / 2 for j in range(N)] for i in range(N)]
+    def matrix(self, primes=True, n_arch_nodes=None):
+        N = self.N; L = self.L; M = [[mp.mpf(0)] * N for _ in range(N)]
+        Pp, Pm = self.Pplus_minus()
+        for i in range(N):
+            for j in range(N): M[i][j] += Pp[i] * Pm[j] + Pm[i] * Pp[j]
+        for i in range(N): M[i][i] += -(mp.log(mp.pi) + mp.euler) - mp.log(1 - mp.exp(-4 * L))
+        na = n_arch_nodes or 64; xs, ws = self._nodes(na)
+        for t, w in zip(xs, ws):
+            x = L * (t + 1); wt = w * L; Sx = self.S(x)
+            for i in range(N):
+                for j in range(N):
+                    d = mp.mpf(1) if i == j else mp.mpf(0)
+                    M[i][j] += wt * 2 * (d * mp.exp(-2 * x) - Sx[i][j] * mp.exp(-x / 2)) / (1 - mp.exp(-2 * x))
+        self.M_arch = [row[:] for row in M]
+        if primes:
+            lam2 = mp.exp(2 * L)
+            for p in [q for q in range(2, int(lam2) + 1) if all(q % r for r in range(2, int(q**0.5) + 1))]:
+                k = 1
+                while p**k <= lam2:
+                    n = p**k; Sx = self.S(mp.log(n)); c = 2 * mp.log(p) / mp.sqrt(n)
+                    for i in range(N):
+                        for j in range(N): M[i][j] -= c * Sx[i][j]
+                    k += 1
+        return M
+
+if __name__ == "__main__":
+    import numpy as np
+    from scipy.special import spherical_jn
+    L = float(sys.argv[1]); N = int(sys.argv[2])
+    W = Weil(L, N); t0 = time.time(); M = W.matrix(); print(f"L={L} N={N}: matrix in {time.time()-t0:.0f}s")
+    Md = np.array([[float(M[i][j]) for j in range(N)] for i in range(N)])
+    zs = np.loadtxt('odlyzko/zeros6'); Z = np.zeros((N, N))
+    for i in range(N):
+        for j in range(N):
+            if (i - j) % 2: continue
+            gi = np.sqrt(2 * (2 * i + 1) * L) * spherical_jn(i, zs * L); gj = np.sqrt(2 * (2 * j + 1) * L) * spherical_jn(j, zs * L)
+            Z[i, j] = 2 * np.real((-1j)**(i - j)) * np.sum(gi * gj)
+    T = zs[-1]; tail = np.array([[np.sqrt((2 * i + 1) * (2 * j + 1)) * (2 / L) * (np.log(T / (2 * np.pi)) + 1) / (2 * np.pi * T) if (i - j) % 2 == 0 else 0.0 for j in range(N)] for i in range(N)])
+    print("max |M_arith - M_zeros| (raw) =", np.abs(Md - Z).max(), "  after adding the zero-sum tail =", np.abs(Md - Z - tail).max(), "  max |M| =", np.abs(Md).max())
+    print("eigenvalues of M_arith:", np.linalg.eigvalsh(Md)[:6])
+EOF
+python3 weil_form.py 0.3 6 2>&1 | tail -3; python3 weil_form.py 0.9 8 2>&1 | tail -3
+
+Response:
+
+{"returncode":0,"stdout":"2001052 zeros6\nL=0.3 N=6: matrix in 1s\nmax |M_arith - M_zeros| (raw) = 0.00013502878364990423   after adding the zero-sum tail = 1.0789007708067455e-10   max |M| = 1.7611810264990577\neigenvalues of M_arith: [0.00763342 0.22319365 0.78747058 1.08534149 1.88443002 2.17517105]\nmax |M_arith - M_zeros| (raw) = 6.137669622918729e-05   after adding the zero-sum tail = 1.0393935423447503e-10   max |M| = 0.907075380225932\neigenvalues of M_arith: [3.95165134e-07 4.20221353e-05 1.00383987e-03 2.01430113e-03\n 6.65358280e-02 5.46359917e-01]\n","stderr":""}

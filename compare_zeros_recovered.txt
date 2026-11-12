@@ -1,0 +1,33 @@
+cd /home/squire && python3 - << 'EOF'
+import json, numpy as np
+from mpmath import mp, mpf, sin, pi, findroot
+mp.dps=50
+d=json.load(open('ccm_hp3_dh_2.0.json')); a=mpf(d['a']); K=d['K']
+on=np.load('dhz_online_true.npy')
+# high-accuracy DH zeros (refined list is accurate ~1e-10; refine few at dps 40)
+import dh
+from mpmath import mpc
+mp.dps=40
+def zero_hp(g0):
+    sc=abs(dh.G(mpc(0.5,mpf(g0))))
+    return findroot(lambda t: dh.G(mpc(0.5,t)).real/sc,(mpf(g0)-mpf('0.02'),mpf(g0)+mpf('0.02')),solver='secant',tol=1e-30,maxsteps=80)
+c=[mpf(x) for x in d['vecs'][0]]
+def ft(r):
+    r=mpf(r); s=c[0]*2*sin(a*r)/r
+    for k in range(1,K+1):
+        w=k*pi/a; s+=c[k]*(sin((r+w)*a)/(r+w)+sin((r-w)*a)/(r-w))
+    return s
+rg=[mpf(x) for x in np.arange(0.2,48.0,0.05)]; vals=[ft(r) for r in rg]; roots=[]
+for i in range(len(rg)-1):
+    if vals[i]*vals[i+1]<0:
+        roots.append(findroot(ft,(rg[i],rg[i+1]),solver='anderson',tol=1e-35))
+print("DH, a=2 (primes<=54), K=19; smallest eigenvalue %.2e: zeros of FT(min eigvec) on (0,48): %d"%(float(mpf(d['eig'][0])),len(roots)))
+print(" first 10 FT zeros:",[mp.nstr(r,12) for r in roots[:10]])
+print("DH real zeros vs FT zeros: ")
+for g0 in on[:12]:
+    g=zero_hp(g0); r=min(roots,key=lambda x: abs(x-g)); print(f"   DH zero {mp.nstr(g,14)}   nearest FT zero {mp.nstr(r,14)}   difference {mp.nstr(r-g,3)}")
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"DH, a=2 (primes<=54), K=19; smallest eigenvalue 1.35e-30: zeros of FT(min eigvec) on (0,48): 26\n first 10 FT zeros: ['5.09415984457', '8.9399144081', '12.1335454258', '14.4040031123', '17.1302394006', '19.3088001742', '22.1597077651', '23.345370112', '26.0949673462', '27.9237988216']\nDH real zeros vs FT zeros: \n   DH zero 5.0941598445711   nearest FT zero 5.0941598445711   difference 3.73e-29\n   DH zero 8.9399144080965   nearest FT zero 8.9399144080965   difference 3.6e-27\n   DH zero 12.133545425801   nearest FT zero 12.133545425801   difference 5.5e-25\n   DH zero 14.404003112277   nearest FT zero 14.404003112277   difference 2.11e-23\n   DH zero 17.130239400572   nearest FT zero 17.130239400572   difference 1.87e-21\n   DH zero 19.308800174228   nearest FT zero 19.308800174228   difference 8.84e-20\n   DH zero 22.159707765094   nearest FT zero 22.159707765094   difference 5.75e-17\n   DH zero 23.345370112027   nearest FT zero 23.345370112027   difference 6.88e-16\n   DH zero 26.094967346245   nearest FT zero 26.094967346246   difference 1.75e-13\n   DH zero 27.9237988216   nearest FT zero 27.923798821628   difference 2.86e-11\n   DH zero 30.159417906273   nearest FT zero 30.159417999227   difference 9.3e-8\n   DH zero 31.964499971164   nearest FT zero 31.964967798157   difference 0.000468\n","stderr":""}

@@ -1,0 +1,53 @@
+cd /mnt/user-data/outputs && python3 - << 'PYEOF'
+p='Riemann_Hypothesis_Li_and_Monotonicity.md'
+s=open(p).read()
+def rep(old,new):
+    global s
+    assert old in s, old[:80]
+    s=s.replace(old,new,1)
+rep("the 14 off-line zeros shift them by","the 15 off-line zeros shift them by")
+rep("It uses $T\\le600$ and 14 off-line zeros.","It uses $T\\le600$ and 15 off-line zeros.")
+rep("The probe at $\\zeta$'s zeros is positive for every $a$ and $T$ tried. The grid in $a$ has step $1$, so each \"first negative $a$\" is an upper bound to within $1$.",
+"The probe at $\\zeta$'s zeros is positive for every $a$ and $T$ tried. The grid in $a$ has step $1$, so each \"first negative $a$\" is an upper bound to within $1$.\n\nThe fifteenth zero ($0.5159+520.94\\,i$, $d=0.016$), found later, is much harder: at $T=520.94$ the probe gives $W=+3.26,+0.98,+0.14,+0.019,-0.004$ for $a=3,4,5,5.5,6$, so it first goes negative at $a\\approx6$ (primes to $1.6\\times10^5$), and not monotonically afterwards ($+0.021$ at $a=7$, $-0.024$ at $a=8$) because the real zeros nearby change the background. That matches the planted-zero scaling below for $d\\approx0.02$.")
+# add 17.6 after 17.5 (before section 18)
+i=s.index("## 18. Open Next Steps")
+add=r'''### 17.6 Scanning over $T$: the Dirichlet-polynomial form of the probe
+
+For fixed $a$, the probe value is a function of $T$ alone,
+
+$$W(T)=\text{Main}(T)-\text{Prime}(T),\qquad \text{Prime}(T)=\sum_{n\le e^{2a}}s_n\cos(T\log n),\quad s_n=\frac{2c(n)R(\log n)}{\sqrt n},$$
+
+a trigonometric (Dirichlet) polynomial in $\log n$ with coefficients supported on primes and prime powers. Positivity of the Weil form on this family is exactly the inequality $\text{Prime}(T)\le\text{Main}(T)$ for all $T$: control of a prime-supported Dirichlet polynomial by a smooth main term. This is the form of "control on the primes" suggested in the discussion before Section 12. I evaluated both sides on a grid in $T$ (vectorized; checked against the pointwise computation of 17.1 to $10^{-6}$) for $T\in[3,700]$, step $0.02$, $a=4,5,6$:
+
+| $a$ (primes to) | $\zeta$: min $W$, $T\ge20$ | $\zeta$: max Prime/Main | DH: min $W$ | DH: negative windows |
+|---|---|---|---|---|
+| 4 (2980) | $+0.0003$ | $0.9997$ | $-5.58$ | 28 |
+| 5 (22,000) | $+0.0002$ | $0.9997$ | $-10.55$ | 40 |
+| 6 (162,000) | $+0.0003$ | $0.9997$ | $-18.29$ | 54 |
+
+**Results**
+
+- **$\zeta$: no violation anywhere** in $[3,700]$ at any of the three bandwidths. The ratio Prime/Main reaches $0.9997$: the prime-supported polynomial comes within $0.03\%$ of the main term. It is tight at the heights of zeros, where the probe kills the nearest zero and only the weak background remains. So the Dirichlet-polynomial inequality holds with essentially no margin, in agreement with Section 14.5.
+- **Davenport–Heilbronn: the scan finds off-line zeros without being told where to look.** Every negative window lies within $2.6$ of a zero in the list of 18 below (all 28, 40 and 54 windows); each off-line zero produces a main window and side lobes about $1$–$1.5$ away from the oscillation of $\hat\omega$ at complex argument, which accounts for the larger window counts at larger $a$.
+- **Four new off-line zeros.** The scan flagged heights where my zero list had nothing: $T\approx521$ (seen at $a=6$ only), $647.0$, $657.1$ and $692.3$ (seen at all three $a$). Root finding on $f$ from those heights, with no further search, gives:
+
+| Height | Zero | $d=\beta-\tfrac12$ | Note |
+|---|---|---|---|
+| 520.94 | $0.5159+520.9438\,i$ | 0.016 | below $\sigma=0.52$, missed by my slope scan; inside the list's range |
+| 646.99 | $0.6108+646.9868\,i$ | 0.111 | above $T=600$, the end of my list |
+| 657.11 | $0.7606+657.1084\,i$ | 0.261 | above $T=600$ |
+| 692.89 | $0.7887+692.8925\,i$ | 0.289 | above $T=600$ |
+
+  Adding the zero at $520.94$ to the zero side lowers the explicit-formula residual at that height from $1.3\times10^{-2}$ to $1.9\times10^{-6}$ (Section 12.1), and improves the Li sum (Section 16.2). So the zero list below $T=600$ now has 464 on-line and 15 off-line zeros, and the arithmetic side alone had pointed to the one I had missed.
+
+**What this shows and does not show.** A prime-supported Dirichlet polynomial scanned over $T$ is a working detector for zeros off the line, including one only $0.016$ from it, and costs primes up to about $T^{1}$ at that offset (Section 17.5). It does not make positivity provable: for $\zeta$ the same inequality is tight, so no argument that loses even $0.03\%$ can prove it.
+
+'''
+s=s[:i]+add+s[i:]
+open(p,'w').write(s)
+PYEOF
+grep -n "^### 17" Riemann_Hypothesis_Li_and_Monotonicity.md
+
+Response:
+
+{"returncode":0,"stdout":"830:### 17.1 Construction\n842:### 17.2 Verification, and a mistake in my zero positions\n851:### 17.3 How many primes are needed\n862:### 17.4 The off-line zeros of the Davenport–Heilbronn function are all detected\n887:### 17.5 Does the cutoff grow with $T$? A planted zero in $\\zeta$\n909:### 17.6 Scanning over $T$: the Dirichlet-polynomial form of the probe\n","stderr":""}

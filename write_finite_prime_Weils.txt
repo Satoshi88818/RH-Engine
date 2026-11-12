@@ -1,0 +1,56 @@
+cd /mnt/user-data/outputs && python3 - << 'PYEOF'
+p='Riemann_Hypothesis_Li_and_Monotonicity.md'
+s=open(p).read()
+i=s.index("## 18. Open Next Steps")
+add=r'''### 17.8 Another prime-indexed form: the finite-prime Weil matrix on $[\lambda^{-1},\lambda]$
+
+The factorization of Section 17.7 failed for one ansatz. A different prime-indexed structure comes from Connes, Consani and Moscovici (arXiv:2511.22755; earlier Connes–Consani, arXiv:2106.01715): restrict the Weil quadratic form to test functions supported on $[\lambda^{-1},\lambda]$, so that only the primes $p\le\lambda^2$ enter, and study its low-lying eigenvectors. They report that the eigenvalues are extremely small and that the spectra of associated operators approach the lowest zeros of $\zeta(\tfrac12+is)$ as the parameters grow; proving that convergence would prove RH (their statement). Our Hann packets are in the same class (support $|v|\le a$, $\lambda=e^a$, primes to $e^{2a}$). I implemented a version of the form myself (not their operators) and ran it at high precision.
+
+**Setup.** Basis $\cos(k\pi v/a)$, $k=0,\dots,K$, on $|v|\le a$ (Gram matrix diagonal). The matrix $A=\text{Main}-\text{Prime}$ is built from primes only, at 60 digits (mpmath), with Gauss–Legendre quadrature for the archimedean term, and the generalized eigenproblem $A c=\varepsilon\,G c$ is solved. I then examined the Fourier transform $\hat\varphi_c(r)=\int\varphi_c(v)e^{irv}dv$ of the eigenvector $c$.
+
+**$\zeta$, $a=1$, $K=19$: primes $2,3,5,7$ (and the power $4$) only.**
+
+| Smallest generalized eigenvalues | $7.3\times10^{-28}$, $1.0\times10^{-21}$, $2.5\times10^{-16}$, $1.0\times10^{-11}$, $1.4\times10^{-7}$, $4.2\times10^{-4}$, $0.25$, $0.78$; largest $3.72$ |
+|---|---|
+
+All are positive, and each is about $10^{5}$ times the previous one. The Fourier transform of the eigenvector for $7.3\times10^{-28}$ has exactly eight real zeros on $(0,45)$, and they are the first eight zeros of $\zeta$:
+
+| $n$ | Zero found | $\zeta$ zero | Difference |
+|---|---|---|---|
+| 1 | 14.1347251417 | 14.1347251417 | $3.5\times10^{-24}$ |
+| 2 | 21.0220396388 | 21.0220396388 | $4.0\times10^{-21}$ |
+| 3 | 25.0108575801 | 25.0108575801 | $2.5\times10^{-19}$ |
+| 4 | 30.4248761259 | 30.4248761259 | $1.2\times10^{-16}$ |
+| 5 | 32.9350615877 | 32.9350615877 | $1.8\times10^{-15}$ |
+| 6 | 37.5861781588 | 37.5861781588 | $1.4\times10^{-13}$ |
+| 7 | 40.9187190122 | 40.9187190121 | $8.2\times10^{-12}$ |
+| 8 | 43.327073281 | 43.3270732809 | $6.7\times10^{-11}$ |
+
+It also correlates with $\Xi(r)$ at $0.9991$ on $[1,40]$; the ratio $\hat\varphi_c/\Xi$ is a smooth increasing factor ($1.8$ at $r=5$, $114$ at $r=40$). The same vector computed in double precision is noise (the eigenvalue sits at the $10^{-13}$ rounding floor) and its transform has extra spurious zeros, so the effect needs high precision to see.
+
+**Davenport–Heilbronn, the same test** (primes from $b(n)$, no Euler product):
+
+| Setting | Smallest eigenvalues | Zeros of the transform of the lowest eigenvector |
+|---|---|---|
+| $a=1$, $K=19$ (primes $\le7$) | $3.7\times10^{-5}$, then $0.53$, $1.7$, $1.9$ | first two match to $10^{-3}$ ($5.095$ vs $5.094$, $8.946$ vs $8.940$); the rest drift ($12.198$ vs $12.134$) |
+| $a=2$, $K=19$ (primes $\le54$) | $1.3\times10^{-30}$, $3.6\times10^{-24}$, $3.2\times10^{-19}$, $8.9\times10^{-15}$, $6.4\times10^{-11}$, $5.9\times10^{-8}$, $4.5\times10^{-5}$, $0.013$ | first ten zeros of the function recovered to $4\times10^{-29}$, $4\times10^{-27}$, $6\times10^{-25}$, $2\times10^{-23}$, $2\times10^{-21}$, $9\times10^{-20}$, $6\times10^{-17}$, $7\times10^{-16}$, $2\times10^{-13}$, $3\times10^{-11}$; the 11th and 12th to $9\times10^{-8}$ and $5\times10^{-4}$ |
+
+**What this shows**
+
+- **The phenomenon reproduces, from primes alone.** Four primes at $a=1$ give the first eight zeta zeros to $11$–$24$ digits as zeros of an explicit function built from the lowest eigenvector. It is a prime-indexed structure of the kind the factorization hunt was after, and it works where the $\log n$-sampled Gram ansatz of Section 17.7 failed.
+- **It is a consequence of the explicit formula, not of the Euler product or of RH.** The identical effect appears for the Davenport–Heilbronn function, which has no Euler product (and has zeros off the line, though at heights above this band). The mechanism is $A=V^\dagger V$ (Section 17.7): $A$ has as many tiny eigenvalues as the basis has directions beyond the zeros in its frequency band, and the eigenvector with the smallest $\sum_\gamma|\hat\varphi(\gamma)|^2$ must nearly vanish at the lowest zeros. Counting: at $a=1$ the band $r\lesssim K\pi/a\approx60$ holds about $13$ zeta zeros against $20$ basis functions and $6$–$7$ tiny eigenvalues; for DH it holds about $27$ zeros against $20$ functions and only one tiny eigenvalue, which is why $a=1$ fails for DH and $a=2$ succeeds.
+- **So the numerical agreement does not distinguish $\zeta$ from a function with off-line zeros.** What would distinguish them is positivity of the whole form (no negative eigenvalue) at all heights, which is the open statement. Here every eigenvalue computed is positive, because no off-line zero of the DH function lies in the band tested.
+- **Limits.** One basis, $a=1$ and $2$, $K=19$. I did not reproduce the operators $D_{\log}$ or the radical conditioning of Connes–Consani–Moscovici, nor test convergence as $\lambda,N\to\infty$ (the step they say would prove RH). The double-precision failure shows the regime is numerically delicate.
+
+'''
+s=s[:i]+add+s[i:]
+s=s.replace("1. Try other prime-indexed factorization ansätze for the prime-side matrix (Section 17.7 only excludes sampling at $\\log n$ in one window), for example in the frequency domain or with weights tied to $\\Lambda(n)/\\sqrt n$.","1. Push the finite-prime Weil matrix of Section 17.8 to larger $a$ and $K$ (the cost grows steeply at 60 digits) and to a basis that includes the off-line zero heights of the Davenport–Heilbronn function, to see the negative eigenvalues next to the tiny positive ones; and try the other prime-indexed ansätze not yet excluded (frequency-domain Gram factors, weights tied to $\\Lambda(n)/\\sqrt n$).")
+s=s.replace("| Can that method reach RH? |","| Does a finite set of primes reproduce the low zeros? | Yes, at high precision, for any function with an explicit formula. For $\\zeta$, the Weil matrix built from primes $2,3,5,7$ alone has an eigenvector whose Fourier transform vanishes at the first eight zeros to $11$–$24$ digits; the Davenport–Heilbronn function does the same with primes to $54$ (Section 17.8). The effect does not need an Euler product, so it is not evidence for RH. |\n| Can that method reach RH? |",1)
+s=s.replace("## References\n","## References\n\n- A. Connes, C. Consani, H. Moscovici, \"Zeta Spectral Triples,\" arXiv:2511.22755 (2025); A. Connes, C. Consani, \"Spectral triples and ζ-cycles,\" arXiv:2106.01715 (2021). Cited from the abstracts and excerpts I read, not from their proofs.\n",1)
+open(p,'w').write(s)
+PYEOF
+grep -n "^### 17" Riemann_Hypothesis_Li_and_Monotonicity.md | tail -3
+
+Response:
+
+{"returncode":0,"stdout":"911:### 17.6 Scanning over $T$: the Dirichlet-polynomial form of the probe\n942:### 17.7 The factorization step: is there a prime-indexed factor?\n963:### 17.8 Another prime-indexed form: the finite-prime Weil matrix on $[\\lambda^{-1},\\lambda]$\n","stderr":""}

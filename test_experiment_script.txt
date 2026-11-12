@@ -1,0 +1,41 @@
+cd /home/squire && cat > weil_experiment.py <<'EOF'
+import sys, json, time
+import numpy as np, mpmath as mp
+from scipy.special import spherical_jn
+import weil_form as WF
+mp.mp.dps = 50
+ZEROS = np.loadtxt('odlyzko/zeros6')[:60]
+def ghat(coeffs, L, r):
+    """Fourier transform of g = sum c_k psi_k at real r (real-valued up to the factor (-i)^k, parity decouples): returns Re/Im part chosen by parity."""
+    out = np.zeros(len(r), dtype=complex)
+    for k, c in enumerate(coeffs): out += c * np.sqrt(2 * (2 * k + 1) * L) * (-1j)**k * spherical_jn(k, r * L)
+    return out
+def run(L, N, primes=True):
+    W = WF.Weil(L, N); M = W.matrix(primes=True); Ma = W.M_arch
+    def eig(Mat):
+        A = mp.matrix(Mat); E, Q = mp.eigsy(A); order = sorted(range(N), key=lambda i: E[i]); return [E[i] for i in order], Q, order
+    Ef, Qf, of = eig(M); Ea, Qa, oa = eig(Ma)
+    res = dict(L=L, N=N, eig_full=[float(e) for e in Ef], eig_arch=[float(e) for e in Ea], min_full=mp.nstr(Ef[0], 8), min_arch=mp.nstr(Ea[0], 8))
+    # minimal eigenvector of the full form: where does its Fourier transform vanish?
+    c = [float(Qf[i, of[0]]) for i in range(N)]
+    r = np.linspace(0.05, 70, 14000); gh = ghat(c, float(L), r); F = gh.real if abs(gh.real).max() > abs(gh.imag).max() else gh.imag
+    s = np.sign(F); idx = np.nonzero(s[:-1] * s[1:] < 0)[0]; cross = r[idx] - F[idx] * (r[idx + 1] - r[idx]) / (F[idx + 1] - F[idx])
+    near = [(float(x), float(np.min(np.abs(ZEROS - x)))) for x in cross]
+    # weight of the minimal eigenvector's Fourier transform on the first zeros vs between them
+    vals = np.array([abs(ghat(c, float(L), np.array([z]))[0])**2 for z in ZEROS[:8]]); typ = np.mean(np.abs(F)**2)
+    res.update(sign_changes=[float(x) for x in cross], nearest_zero_dist=[d for _, d in near], mean_sq_at_first8_zeros=float(vals.mean()), mean_sq_overall=float(typ))
+    return res
+if __name__ == "__main__":
+    out = []
+    for L in [float(x) for x in sys.argv[2].split(",")]:
+        t0 = time.time(); r = run(L, int(sys.argv[1])); r['secs'] = time.time() - t0; out.append(r)
+        print(f"L={L}: {r['secs']:.0f}s  min eig (full) = {r['min_full']}   min eig (arch only) = {r['min_arch']}", flush=True)
+        print("   eig_full[:6] =", [f"{e:.2e}" for e in r['eig_full'][:6]])
+        print("   sign changes of g^_min(r), r<70:", [round(x, 2) for x in r['sign_changes'][:14]], " | distance to nearest zero:", [round(d, 2) for d in r['nearest_zero_dist'][:14]], flush=True)
+        json.dump(out, open(sys.argv[3], 'w'))
+EOF
+timeout 250 python3 weil_experiment.py 12 0.9 test_weil.json 2>&1 | tail -6
+
+Response:
+
+{"returncode":0,"stdout":"L=0.9: 2s  min eig (full) = 3.403982e-10   min eig (arch only) = -1.1209335\n   eig_full[:6] = ['3.40e-10', '5.49e-08', '7.51e-06', '2.11e-04', '2.77e-03', '6.81e-03']\n   sign changes of g^_min(r), r<70: [10.22, 14.13, 17.75, 21.11, 23.93, 26.3, 29.21, 32.43, 35.61, 38.57, 41.28, 44.17, 47.35, 50.69]  | distance to nearest zero: [3.91, 0.0, 3.27, 0.09, 1.08, 1.29, 1.21, 0.51, 1.97, 0.98, 0.36, 0.84, 0.65, 0.91]\n","stderr":""}

@@ -1,0 +1,35 @@
+cd /mnt/user-data/outputs && python3 - << 'PYEOF'
+p='Riemann_Hypothesis_Li_and_Monotonicity.md'
+s=open(p).read()
+
+# ---------- corrections ----------
+def rep(old,new,count=1):
+    global s
+    assert old in s, old[:60]
+    s=s.replace(old,new,count)
+
+rep("while a positive proportion lie on the line (Karatsuba). That mixture is the same picture","while some zeros lie on the line (the zero scan in Section 12.1 finds 464 of the 492 up to height 600). I could not verify how strong the known results on the line are, and an earlier draft of this section overstated them. That mixture is the same picture")
+rep("- **On-line fraction:** $464/492=94.3\\%$. Both Karatsuba's positive proportion and the existence of off-line zeros are visible.","- **On-line fraction:** $464/492=94.3\\%$ in this range; this is an observation, not a claim about the limit.")
+rep("In particular I did not test whether averaging methods of the Section 9 type could certify a positive proportion for DH (Karatsuba's theorem says a positive proportion lie on the line).","In particular I did not test whether averaging methods of the Section 9 type could certify a positive proportion for DH.")
+# 12.2 table
+rep("| Davenport–Heilbronn, $T=200$ | 130 | 1.2104 | 0.790 | 0.939 |","| Davenport–Heilbronn, $T=200$ | 130 | 1.2099 | 0.790 | 0.938 |")
+rep("| Davenport–Heilbronn, $T=400$ | 303 | 1.2580 | 0.742 | 0.947 |","| Davenport–Heilbronn, $T=400$ | 303 | 1.2571 | 0.743 | 0.947 |")
+rep("| Davenport–Heilbronn, $T=600$ | 492 | 1.2867 | 0.713 | 0.943 |","| Davenport–Heilbronn, $T=600$ | 492 | 1.2856 | 0.714 | 0.943 |")
+rep("| on-line × on-line | 536.2 |","| on-line × on-line | 535.7 |")
+rep("| Total | 633.0 |","| Total | 632.5 |")
+rep("the measured $\\sum K^2/N$ is $1.1557$; the GUE model of Section 10.5 with the correct density predicts $1.2287$, and with $\\zeta$'s density $1.1085$. So the measured value is $0.073$ below the model","the measured $\\sum K^2/N$ is $1.1545$; the GUE model of Section 10.5 with the correct density predicts $1.2287$, and with $\\zeta$'s density $1.1085$. So the measured value is $0.074$ below the model")
+# 13.3
+rep("| On-line plus the 14 off-line pairs | 0.62 | 0.19 |","| On-line plus the 14 off-line pairs | 0.64 | 0.19 |")
+# 14.2
+rep("| Davenport–Heilbronn (492 zeros, $b(n)$ to $10^6$) | $1.4\\times10^{-3}$ (after refinement, $2.4\\times10^{-3}$) | 4.45 |","| Davenport–Heilbronn (492 zeros, $b(n)$ to $10^6$) | $1.1\\times10^{-12}$ | 4.45 |")
+i=s.index("For $\\zeta$ the two sides agree to machine precision, so the implementation of the explicit formula is correct.")
+j=s.index("\n",i)
+s=s[:i]+"For both functions the two sides agree to machine precision, so the implementation of the explicit formula is correct for each. An earlier version of this table showed a $10^{-3}$ disagreement for the Davenport–Heilbronn function; that was my error. The on-line zero positions had been estimated from sign changes on a grid of step $0.08$ and my attempt to refine them did not converge (see Section 17.2), leaving errors up to $0.015$. With properly refined positions the discrepancy disappears. The smallest eigenvalues of the two matrices agree ($-0.0670$ from both sides at $85.7$)."+s[j:]
+rep("The smallest eigenvalues of the two matrices still agree closely","The smallest eigenvalues of the two matrices still agree closely") if "The smallest eigenvalues of the two matrices still agree closely" in s else None
+open(p,'w').write(s)
+print("corrections applied")
+PYEOF
+
+Response:
+
+{"returncode":0,"stdout":"corrections applied\n","stderr":""}

@@ -1,0 +1,16 @@
+cd /home/squire && python3 - <<'EOF'
+s=open('weil_form.py').read()
+a=s.index("        for i in range(N): M[i][i] -= (mp.log(mp.pi) + mp.euler) + (-mp.log(1 - mp.exp(-4 * L)) * (-1))  # placeholder fixed below")
+b=s.index("        # archimedean integral over [0, 2L]")
+s=s[:a]+"        for i in range(N): M[i][i] += -(mp.log(mp.pi) + mp.euler) - mp.log(1 - mp.exp(-4 * L))     # -(ln pi + gamma) and the arch. tail beyond x = 2L\n"+s[b:]
+s=s.replace("        self.t, self.w = zip(*mp.calculus.quadrature.GaussLegendre(mp.mp).calc_nodes(7, mp.mp.prec)[:0]) if False else (None, None)\n","")
+s=s.replace("""    print("max |M_arith - M_zeros| =", np.abs(Md - Z).max(), "  max |M| =", np.abs(Md).max())""",
+"""    T = zs[-1]; tail = np.array([[np.sqrt((2 * i + 1) * (2 * j + 1)) * (2 / L) * (np.log(T / (2 * np.pi)) + 1) / (2 * np.pi * T) if (i - j) % 2 == 0 else 0.0 for j in range(N)] for i in range(N)])
+    print("max |M_arith - M_zeros| (raw) =", np.abs(Md - Z).max(), "  after adding the zero-sum tail =", np.abs(Md - Z - tail).max(), "  max |M| =", np.abs(Md).max())""")
+open('weil_form.py','w').write(s)
+EOF
+python3 weil_form.py 0.3 6 2>&1 | tail -3; python3 weil_form.py 0.9 8 2>&1 | tail -3
+
+Response:
+
+{"returncode":0,"stdout":"L=0.3 N=6: matrix in 1s\nmax |M_arith - M_zeros| (raw) = 0.00013502878364990423   after adding the zero-sum tail = 1.0789007708067455e-10   max |M| = 1.7611810264990577\neigenvalues of M_arith: [0.00763342 0.22319365 0.78747058 1.08534149 1.88443002 2.17517105]\nmax |M_arith - M_zeros| (raw) = 6.137669622918729e-05   after adding the zero-sum tail = 1.0393935423447503e-10   max |M| = 0.907075380225932\neigenvalues of M_arith: [3.95165134e-07 4.20221353e-05 1.00383987e-03 2.01430113e-03\n 6.65358280e-02 5.46359917e-01]\n","stderr":""}

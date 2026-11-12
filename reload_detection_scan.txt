@@ -1,0 +1,12 @@
+cd /home/squire && python3 - << 'EOF'
+import json
+rows=json.load(open('detect_rows.json')); AS=[2.0,3.0,4.0,5.0,6.0,7.0,8.0]
+print("gamma, d, DH W for a=2..8 ; zeta W>0 all?")
+for g,d,wd,wz in rows:
+    first=next((AS[i] for i,x in enumerate(wd) if x<0),None)
+    print(f"{g:8.2f} {d:.3f} | "+" ".join(f"{x:+.3f}" for x in wd)+f" | first neg a={first} | zeta min W={min(wz):+.3f}")
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"gamma, d, DH W for a=2..8 ; zeta W>0 all?\n   85.70 0.309 | +1.188 -1.832 -3.663 -6.463 -10.619 -16.863 -26.240 | first neg a=3.0 | zeta min W=+0.017\n  114.16 0.151 | +2.201 -0.193 -0.719 -1.218 -1.812 -2.575 -3.513 | first neg a=3.0 | zeta min W=+0.241\n  166.48 0.074 | +2.651 +0.053 -0.131 -0.273 -0.396 -0.560 -0.739 | first neg a=4.0 | zeta min W=+0.113\n  176.70 0.224 | +3.466 +0.028 -1.737 -2.912 -4.567 -6.759 -9.717 | first neg a=4.0 | zeta min W=+0.973\n  240.40 0.370 | +3.081 -1.390 -5.575 -10.551 -18.303 -30.990 -51.697 | first neg a=3.0 | zeta min W=+0.303\n  320.88 0.320 | +3.755 -1.118 -3.977 -7.048 -11.749 -18.857 -29.704 | first neg a=3.0 | zeta min W=+1.463\n  331.05 0.268 | +3.962 +0.749 -2.006 -4.514 -7.186 -11.039 -16.527 | first neg a=4.0 | zeta min W=+2.242\n  366.64 0.129 | +5.170 +1.788 -0.332 -0.827 -1.249 -1.791 -2.416 | first neg a=4.0 | zeta min W=+2.180\n  411.80 0.316 | +3.832 +0.270 -3.073 -6.809 -11.345 -18.139 -28.503 | first neg a=4.0 | zeta min W=+0.739\n  440.48 0.209 | +4.796 +1.189 -0.977 -2.499 -3.806 -5.614 -7.992 | first neg a=4.0 | zeta min W=+0.834\n  531.28 0.347 | +4.408 -0.919 -4.755 -8.826 -15.003 -24.816 -40.293 | first neg a=3.0 | zeta min W=+2.006\n  548.91 0.230 | +5.214 +1.974 -1.114 -3.034 -4.820 -7.155 -10.381 | first neg a=4.0 | zeta min W=+0.665\n  566.51 0.287 | +5.000 +1.826 -2.379 -5.310 -8.578 -13.417 -20.431 | first neg a=4.0 | zeta min W=+0.808\n  595.02 0.083 | +5.897 +0.887 -0.127 -0.301 -0.498 -0.691 -0.927 | first neg a=4.0 | zeta min W=+0.102\n","stderr":""}
