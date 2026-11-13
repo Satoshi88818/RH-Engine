@@ -1,0 +1,39 @@
+cd /home/squire && cat > weil_experiment.py <<'EOF'
+"""Spectrum of the Weil form on [-L, L]: positivity, minuscule eigenvalues, and where the minimal eigenvector's Fourier transform vanishes."""
+import os, sys, json, time
+import numpy as np, mpmath as mp
+from scipy.special import spherical_jn
+import weil_form as WF
+mp.mp.dps = int(os.environ.get("WEIL_DPS", 50))
+ZEROS = np.loadtxt('odlyzko/zeros6')[:60]
+def ghat(coeffs, L, r):
+    out = np.zeros(len(r), dtype=complex)
+    for k, c in enumerate(coeffs): out += c * np.sqrt(2 * (2 * k + 1) * L) * (-1j)**k * spherical_jn(k, r * L)
+    return out
+def eig(Mat, N):
+    E, Q = mp.eigsy(mp.matrix(Mat)); order = sorted(range(N), key=lambda i: E[i]); return [E[i] for i in order], Q, order
+def run(L, N):
+    W = WF.Weil(L, N); M = W.matrix(); Ma = W.M_arch
+    Ef, Qf, of = eig(M, N); Ea, Qa, oa = eig(Ma, N)
+    res = dict(L=L, N=N, eig_full=[mp.nstr(e, 10) for e in Ef], eig_arch=[mp.nstr(e, 10) for e in Ea], min_full=mp.nstr(Ef[0], 8), min_arch=mp.nstr(Ea[0], 8), n_negative_arch=int(sum(1 for e in Ea if e < 0)), n_negative_full=int(sum(1 for e in Ef if e < 0)))
+    c = [float(Qf[i, of[0]]) for i in range(N)]
+    r = np.linspace(0.05, 70, 14000); gh = ghat(c, float(L), r); F = gh.real if abs(gh.real).max() > abs(gh.imag).max() else gh.imag
+    s = np.sign(F); idx = np.nonzero(s[:-1] * s[1:] < 0)[0]; cross = r[idx] - F[idx] * (r[idx + 1] - r[idx]) / (F[idx + 1] - F[idx])
+    near = [float(np.min(np.abs(ZEROS - x))) for x in cross]
+    vals = np.array([abs(ghat(c, float(L), np.array([z]))[0])**2 for z in ZEROS[:8]])
+    res.update(sign_changes=[float(x) for x in cross], nearest_zero_dist=near, mean_sq_first8_zeros=float(vals.mean()), mean_sq_overall=float(np.mean(np.abs(F)**2)))
+    return res
+if __name__ == "__main__":
+    out = []
+    for L in [float(x) for x in sys.argv[2].split(",")]:
+        t0 = time.time(); r = run(L, int(sys.argv[1])); r['secs'] = time.time() - t0; out.append(r)
+        print(f"L={L}: {r['secs']:.0f}s  min eig (full) = {r['min_full']} (#neg {r['n_negative_full']})   min eig (arch only) = {r['min_arch']} (#neg {r['n_negative_arch']})", flush=True)
+        print("   eig_full[:6] =", r['eig_full'][:6])
+        print("   sign changes of g^_min(r), r<70:", [round(x, 2) for x in r['sign_changes'][:14]], "| distance to nearest zero:", [round(d, 2) for d in r['nearest_zero_dist'][:14]], flush=True)
+        json.dump(out, open(sys.argv[3], 'w'))
+EOF
+cp weil_form.py weil_experiment.py /mnt/user-data/outputs/ && (WEIL_DPS=90 timeout 270 python3 weil_experiment.py 24 0.25,0.34,0.36,0.5,0.7 weil_sweepA.json 2>&1 | grep -v Warning | cut -c1-300)
+
+Response:
+
+{"returncode":0,"stdout":"L=0.25: 7s  min eig (full) = 0.033364678 (#neg 0)   min eig (arch only) = 0.033364678 (#neg 0)\n   eig_full[:6] = ['0.03336467842', '0.4089508852', '0.9473691627', '1.253833991', '1.510947951', '1.70522309']\n   sign changes of g^_min(r), r<70: [16.59, 28.12, 40.16, 52.41, 64.76] | distance to nearest zero: [2.46, 2.3, 0.76, 0.57, 0.36]\nL=0.34: 7s  min eig (full) = 0.0016094351 (#neg 0)   min eig (arch only) = 0.0016094351 (#neg 0)\n   eig_full[:6] = ['0.001609435111', '0.09308573959', '0.6759677624', '0.9454657352', '1.210146485', '1.397454028']\n   sign changes of g^_min(r), r<70: [14.38, 22.79, 31.41, 40.18, 49.06, 58.02, 67.05] | distance to nearest zero: [0.24, 1.77, 0.98, 0.74, 0.71, 1.33, 0.03]\nL=0.36: 8s  min eig (full) = 0.00085048343 (#neg 0)   min eig (arch only) = 0.0010834967 (#neg 0)\n   eig_full[:6] = ['0.0008504834274', '0.04865630735', '0.6011178474', '0.9080980765', '1.102159617', '1.363790901']\n   sign changes of g^_min(r), r<70: [14.29, 22.44, 30.59, 38.7, 46.78, 54.9, 63.1] | distance to nearest zero: [0.15, 1.42, 0.17, 1.12, 1.22, 1.54, 2.01]\nL=0.5: 9s  min eig (full) = 9.4471618e-7 (#neg 0)   min eig (arch only) = -0.32222169 (#neg 2)\n   eig_full[:6] = ['9.447161787e-7', '0.0001960366729', '0.01819842583', '0.3645197736', '0.8328056968', '0.8934174869']\n   sign changes of g^_min(r), r<70: [14.14, 21.05, 25.2, 31.36, 36.83, 41.94, 48.4, 54.03, 59.73, 65.76] | distance to nearest zero: [0.0, 0.03, 0.19, 0.93, 0.75, 1.02, 0.39, 1.06, 0.38, 0.65]\nL=0.7: 8s  min eig (full) = 3.9873387e-12 (#neg 0)   min eig (arch only) = -0.73391963 (#neg 2)\n   eig_full[:6] = ['3.987338673e-12', '4.889822842e-10', '1.253359186e-7', '1.90890914e-5', '0.001951518454', '0.06523478297']\n   sign changes of g^_min(r), r<70: [14.13, 21.02, 25.01, 30.41, 33.07, 36.57, 45.39, 50.52, 55.23, 59.77, 63.86, 66.84] | distance to nearest zero: [0.0, 0.0, 0.0, 0.01, 0.14, 1.01, 2.07, 0.75, 1.21, 0.42, 1.26, 0.24]\n","stderr":""}

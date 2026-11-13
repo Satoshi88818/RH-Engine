@@ -1,0 +1,20 @@
+cd /home/squire && cat > weil_convergence.py <<'EOF'
+import os, sys, json, time
+import numpy as np
+os.environ.setdefault("WEIL_DPS", "140")
+import weil_experiment as WE
+L = float(sys.argv[1]); out = []
+for N in [int(x) for x in sys.argv[2].split(",")]:
+    t0 = time.time(); r = WE.run(L, N); r['secs'] = time.time() - t0; out.append(r)
+    sc = np.array(r['sign_changes']); zs = WE.ZEROS
+    matched = [(float(z), float(np.min(np.abs(sc - z))) if len(sc) else None) for z in zs[:10]]
+    nm = sum(1 for z, d in matched if d is not None and d < 0.05)
+    first_bad = next((i + 1 for i, (z, d) in enumerate(matched) if d is None or d >= 0.05), None)
+    print(f"L={L} N={N}: {r['secs']:.0f}s  min eig = {r['min_full']}  next = {r['eig_full'][1]}   first zeros matched within 0.05: {nm}/10 (first miss: zero #{first_bad})   dists = {[round(d,3) for z,d in matched[:8]]}", flush=True)
+    json.dump(out, open(sys.argv[3], 'w'))
+EOF
+WEIL_DPS=140 timeout 275 python3 weil_convergence.py 0.7 8,12,16,20,24,32 weil_convA.json 2>&1 | grep -v Warning | cut -c1-260
+
+Response:
+
+{"returncode":0,"stdout":"L=0.7 N=8: 2s  min eig = 1.8897435e-6  next = 0.0003119017211   first zeros matched within 0.05: 1/10 (first miss: zero #2)   dists = [0.018, 0.671, 0.311, 1.036, 0.745, 0.471, 1.553, 0.856]\nL=0.7 N=12: 3s  min eig = 4.0894967e-8  next = 3.518698596e-7   first zeros matched within 0.05: 1/10 (first miss: zero #2)   dists = [0.001, 0.404, 3.329, 2.085, 1.58, 2.837, 0.496, 2.214]\nL=0.7 N=16: 5s  min eig = 1.074097e-9  next = 4.157981975e-8   first zeros matched within 0.05: 3/10 (first miss: zero #4)   dists = [0.0, 0.021, 0.02, 0.715, 1.422, 1.292, 1.916, 0.252]\nL=0.7 N=20: 7s  min eig = 2.3468529e-11  next = 4.069765798e-9   first zeros matched within 0.05: 3/10 (first miss: zero #4)   dists = [0.0, 0.0, 0.007, 0.767, 0.073, 0.173, 1.373, 1.036]\nL=0.7 N=24: 11s  min eig = 3.9873387e-12  next = 4.889822842e-10   first zeros matched within 0.05: 4/10 (first miss: zero #5)   dists = [0.0, 0.0, 0.0, 0.014, 0.137, 1.011, 4.344, 2.068]\nL=0.7 N=32: 20s  min eig = 4.7276715e-13  next = 2.759562804e-10   first zeros matched within 0.05: 6/10 (first miss: zero #7)   dists = [0.0, 0.0, 0.0, 0.0, 0.002, 0.021, 0.142, 0.375]\n","stderr":""}
