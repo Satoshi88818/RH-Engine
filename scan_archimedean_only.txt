@@ -1,0 +1,13 @@
+cd /home/squire && WEIL_DPS=90 timeout 280 python3 - <<'EOF' 2>&1 | grep -v Warning
+import json, time, os
+import weil_experiment as WE
+out=[]
+for L in [0.30,0.34,0.3466,0.355,0.365,0.38,0.40,0.42,0.45]:
+    t0=time.time(); r=WE.run(L,24); out.append(dict(L=L,min_full=r['min_full'],min_arch=r['min_arch'],neg_arch=r['n_negative_arch'],neg_full=r['n_negative_full']))
+    print(f"L={L:6.4f}  lambda^2={2.718281828**(2*L):.3f}  min eig FULL = {r['min_full']:>14}  min eig ARCH-ONLY = {r['min_arch']:>14}  (#neg arch {r['n_negative_arch']}, #neg full {r['n_negative_full']})  [{time.time()-t0:.0f}s]",flush=True)
+    json.dump(out,open('weil_transition.json','w'))
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"L=0.3000  lambda^2=1.822  min eig FULL =   0.0075730466  min eig ARCH-ONLY =   0.0075730466  (#neg arch 0, #neg full 0)  [6s]\nL=0.3400  lambda^2=1.974  min eig FULL =   0.0016094351  min eig ARCH-ONLY =   0.0016094351  (#neg arch 0, #neg full 0)  [6s]\nL=0.3466  lambda^2=2.000  min eig FULL =   0.0013284933  min eig ARCH-ONLY =   0.0013286455  (#neg arch 0, #neg full 0)  [6s]\nL=0.3550  lambda^2=2.034  min eig FULL =   0.0010105002  min eig ARCH-ONLY =   0.0011353691  (#neg arch 0, #neg full 0)  [6s]\nL=0.3650  lambda^2=2.075  min eig FULL =  0.00071259054  min eig ARCH-ONLY =   0.0010621682  (#neg arch 0, #neg full 0)  [6s]\nL=0.3800  lambda^2=2.138  min eig FULL =  0.00040780822  min eig ARCH-ONLY =   -0.023568798  (#neg arch 1, #neg full 0)  [6s]\nL=0.4000  lambda^2=2.226  min eig FULL =  0.00018209596  min eig ARCH-ONLY =   -0.078030412  (#neg arch 1, #neg full 0)  [6s]\nL=0.4200  lambda^2=2.316  min eig FULL =   7.4609795e-5  min eig ARCH-ONLY =    -0.13031346  (#neg arch 2, #neg full 0)  [6s]\nL=0.4500  lambda^2=2.460  min eig FULL =   1.6295753e-5  min eig ARCH-ONLY =    -0.20519087  (#neg arch 2, #neg full 0)  [6s]\n","stderr":""}
