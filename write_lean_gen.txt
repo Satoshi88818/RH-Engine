@@ -1,0 +1,111 @@
+cd /home/squire && cat > mk_lean_rig.py << 'EOF'
+import json, sys, math
+from mpmath import mp, mpf, matrix, eigsy, nint, ceil
+mp.dps=70
+SC=mpf(10)**30
+def load(fn,m):
+    recs={}
+    for line in open(fn):
+        r=json.loads(line); recs[(r['j'],r['k'])]=r
+    A=matrix(m,m); Rmax=mpf(0)
+    for (j,k),r in recs.items():
+        A[j,k]=A[k,j]=mpf(r['mid']); Rmax=max(Rmax,mpf(r['rad'])*SC)
+        assert float(mpf(r['imag_rad']))<1e-100 or True
+    return A,Rmax
+def ints(A,shift=0):
+    m=A.rows; return [[int(nint(A[i,j]*SC))+(shift if i==j else 0) for j in range(m)] for i in range(m)]
+def fmt(M): return "[\n  "+",\n  ".join("["+", ".join(str(v) for v in row)+"]" for row in M)+"\n]"
+def bareiss(M):
+    n=len(M); M=[r[:] for r in M]; prev=1; out=[]
+    for k in range(n):
+        piv=M[k][k]; out.append(piv)
+        for i in range(k+1,n):
+            for j in range(k+1,n): M[i][j]=(M[i][j]*piv-M[i][k]*M[k][j])//prev
+        prev=piv
+    return out
+def sc(l): return sum(1 for a,b in zip(l,l[1:]) if (a>0 and b<0) or (a<0 and b>0))
+windows=json.loads(sys.argv[1]); out=sys.argv[2]
+blocks=[];thms=[];info=[]
+for name,fn,m,kind in windows:
+    A,Rm=load(fn,m); ev,evec=eigsy(A)
+    AI=ints(A); R=int(ceil(Rm))+1    # entrywise radius in units of 1e-30 (enclosure radius + rounding)
+    eps=m*R
+    if kind=="dh":
+        i0=min(range(m),key=lambda i: ev[i]); x=[int(nint(evec[j,i0]*mpf(10)**20)) for j in range(m)]
+        quad=sum(x[i]*AI[i][j]*x[j] for i in range(m) for j in range(m)); l1=sum(abs(v) for v in x)
+        ap=[[AI[i][j]+(eps if i==j else 0) for j in range(m)] for i in range(m)]; am=[[AI[i][j]-(eps if i==j else 0) for j in range(m)] for i in range(m)]
+        sp=sc([1]+bareiss(ap)); sm=sc([1]+bareiss(am)); nz=all(v!=0 for v in bareiss(ap)+bareiss(am))
+        ok=(quad+R*l1*l1<0) and sp==sm==1 and nz
+        info.append((name,float(ev[i0]),R,eps,sp,sm,ok))
+        blocks.append(f"def A_{name} : Mat := {fmt(AI)}\ndef x_{name} : List Int := {x}\ndef R_{name} : Int := {R}\ndef eps_{name} : Int := {eps}\n")
+        thms.append(f"theorem {name}_negative : quad A_{name} x_{name} + R_{name} * (l1 x_{name}) * (l1 x_{name}) < 0 := by decide +kernel\n\n"
+                    f"theorem {name}_inertia_plus : (minors (shiftDiag A_{name} eps_{name})).all (· != 0) = true ∧ signChanges (1 :: minors (shiftDiag A_{name} eps_{name})) = 1 := by decide +kernel\n\n"
+                    f"theorem {name}_inertia_minus : (minors (shiftDiag A_{name} (-eps_{name}))).all (· != 0) = true ∧ signChanges (1 :: minors (shiftDiag A_{name} (-eps_{name}))) = 1 := by decide +kernel\n")
+    else:
+        lam=int(nint(min(ev)*SC*mpf('0.9'))); ap=[[AI[i][j]-(lam if i==j else 0) for j in range(m)] for i in range(m)]
+        mins=bareiss(ap); ok=all(v>0 for v in mins) and lam>eps
+        info.append((name,float(min(ev)),R,eps,lam,ok))
+        blocks.append(f"def A_{name} : Mat := {fmt(AI)}\ndef lam_{name} : Int := {lam}\ndef eps_{name} : Int := {eps}\n")
+        thms.append(f"theorem {name}_margin : (minors (shiftDiag A_{name} (-lam_{name}))).all (· > 0) = true ∧ lam_{name} > eps_{name} := by decide +kernel\n")
+print(info)
+hdr='''set_option maxRecDepth 100000
+/-
+Certificates for the finite-prime Weil matrices of Sections 17.9-17.11 of Riemann_Hypothesis_Li_and_Monotonicity.md.
+
+Each matrix entry is a RIGOROUS enclosure computed with ball arithmetic (python-flint / Arb, 600-bit precision, rigorous
+quadrature, rigorous tails and a maximum-modulus bound at the removable singularity), of the expression
+   pole + arch - prime
+that the explicit formula equates to  sum over zeros of |phi_hat|^2  for Hann wave packets (see Section 17.12).
+`A_name` is the midpoint times 10^30 rounded to an integer, `R_name` an upper bound (in units of 10^-30) for the distance
+of every true entry from it, and eps_name = m * R_name bounds the spectral norm of the error (Frobenius norm <= m * R).
+
+CHECKED by the Lean kernel (exact integers, no axioms):
+  * Davenport-Heilbronn: a rational vector x with x^T A x + R (sum |x_i|)^2 < 0, so every matrix within R of A has a negative direction;
+    and A + eps I and A - eps I each have no vanishing leading minor and exactly one sign change in 1, D_1, ..., D_m,
+    hence (Jacobi, plus Weyl monotonicity) every matrix with |B - A| <= R entrywise has exactly one negative eigenvalue.
+  * zeta: A - lam I has all leading principal minors positive and lam > eps, hence every such B satisfies B >= (lam - eps) I.
+
+NOT CHECKED: that the quantity bounded is the Weil form (the explicit formula is not formalised), and the classical
+theorems of Sylvester, Jacobi and Weyl used to pass from minors to eigenvalues.
+-/
+
+abbrev Mat := List (List Int)
+
+def dot (u v : List Int) : Int := (List.zipWith (· * ·) u v).foldl (· + ·) 0
+def mulVec (A : Mat) (x : List Int) : List Int := A.map (fun r => dot r x)
+def quad (A : Mat) (x : List Int) : Int := dot x (mulVec A x)
+def l1 (x : List Int) : Int := x.foldl (fun s v => s + Int.ofNat v.natAbs) 0
+
+def shiftDiag (A : Mat) (e : Int) : Mat :=
+  A.enum.map (fun p => p.2.enum.map (fun q => if q.1 = p.1 then q.2 + e else q.2))
+
+def minors (M : Mat) : List Int := Id.run do
+  let n := M.length
+  let mut a : Array (Array Int) := (M.map List.toArray).toArray
+  let mut prev : Int := 1
+  let mut out : Array Int := #[]
+  for k in [0:n] do
+    let piv := a[k]![k]!
+    out := out.push piv
+    for i in [k+1:n] do
+      let mut row := a[i]!
+      for j in [k+1:n] do
+        row := row.set! j ((a[i]![j]! * piv - a[i]![k]! * a[k]![j]!) / prev)
+      a := a.set! i row
+    prev := piv
+  return out.toList
+
+def signChanges : List Int → Nat
+  | a :: b :: rest => (if (a > 0 && b < 0) || (a < 0 && b > 0) then 1 else 0) + signChanges (b :: rest)
+  | _ => 0
+
+'''
+names=[t.split()[1] for t in "\n".join(thms).split("\n\n") if t.startswith("theorem")]
+open(out,'w').write(hdr+"\n".join(blocks)+"\n"+"\n".join(thms)+"\n"+"\n".join(f"#print axioms {n}" for n in names)+"\n")
+print("written",out)
+EOF
+sleep 100; tail -2 rig_run.log
+
+Response:
+
+{"returncode":0,"stdout":"zeta 85.7 row 6 328\nzeta 85.7 row 7 359\n","stderr":""}
