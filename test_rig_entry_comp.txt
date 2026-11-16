@@ -1,0 +1,80 @@
+cd /home/squire && python3 - << 'EOF'
+s=open('rigor.py').read()
+i=s.index("def entry(B,j,k,eps_exp=34):")
+s=s[:i]+'''def entry(B,j,k,eps_exp=34,rho_f=0.02,ncover=128):
+    import math
+    a=B['a']; L=B['L']; c=B['c_exp']; kind=B['kind']; PI=B['PI']
+    G=B['make_G'](j,k); g0=G(acb(0))
+    pole=acb(0)
+    if kind=="zeta":
+        pole=4*acb.integral(lambda u,an: G(u)*(u/2).cosh(),0,L)
+    D=lambda u,an: (-c*u).exp()*(G(u)-g0)/(1-(-2*u).exp())
+    # bound on |D| for |u|<=rho by max modulus over a rigorous cover of the circle
+    M=arb(0); rad=2*math.pi*rho_f/ncover*0.75
+    for kk in range(ncover):
+        th=2*math.pi*kk/ncover
+        ball=acb(arb(rho_f*math.cos(th),rad),arb(rho_f*math.sin(th),rad))
+        v=abs(D(ball,True)).upper()
+        if v>M: M=v
+    eps=arb(10)**(-eps_exp)
+    edges=[]; x=eps
+    while x<arb("1e-3"):
+        edges.append(x); x=x*2
+    edges.append(arb("1e-3")); edges+= [arb("0.1"),arb("0.5")]+[arb(i)/2 for i in range(2,int(float(L)*2)+1)]
+    edges.append(L)
+    # remove duplicates/out of order
+    clean=[edges[0]]
+    for e in edges[1:]:
+        if e>clean[-1]: clean.append(e)
+    Dint=acb(0)
+    for x0,x1 in zip(clean[:-1],clean[1:]):
+        Dint+=acb.integral(D,x0,x1)
+    Dint+=acb(0,0)+acb(arb(0),arb(0)).__class__(0)  # no-op
+    tail0=acb(arb(0,eps*M))   # |int_0^eps D| <= eps*M
+    Dint+=tail0
+    # series
+    K=60; ser=arb(0)
+    for kk in range(K):
+        ser+=(-L*(c+2*kk)).exp()/(c+2*kk)
+    last=(-L*(c+2*K)).exp()/(c+2*K)
+    ser=ser+arb(0,last/(1-(-2*L).exp()))
+    psi=(c/2).digamma()
+    arch=g0*(psi+2*ser)-2*Dint
+    logterm=-g0*PI.log() if kind=="zeta" else g0*((arb(5)/PI).log())
+    prime=acb(0)
+    for n,cn in B['coef'].items():
+        prime+=2*cn/arb(n).sqrt()*G(acb(arb(n).log()))
+    return pole+arch+logterm-prime
+def matrix_of(kind,a,T0s,m,eps_exp=34,out=None):
+    B=build(kind,a,T0s,m)
+    res={}
+    t0=time.time()
+    for j in range(m):
+        for k in range(j,m):
+            e=entry(B,j,k,eps_exp)
+            res[(j,k)]=e
+        if out: print("row",j,round(time.time()-t0),flush=True)
+    return res
+if __name__=="__main__":
+    kind=sys.argv[1]; a=sys.argv[2]; T0=sys.argv[3]; m=int(sys.argv[4])
+    res=matrix_of(kind,a,T0,m,out=True)
+    dump={f"{j},{k}":[str(v.real.mid().str(60,radius=False)),str(v.real.rad().str(5)),str(v.imag.mid().str(10,radius=False)),str(v.imag.rad().str(5))] for (j,k),v in res.items()}
+    json.dump(dump,open(f"rig_{kind}_{T0}_{a}_{m}.json","w"))
+    print("done",flush=True)
+'''
+open('rigor.py','w').write(s)
+EOF
+python3 - << 'EOF'
+import sys; sys.path.insert(0,'/home/squire')
+import time
+from rigor import *
+# quick test: tiny window  (a=2, m=2, T0=20, dh) vs mp pipeline value not available -> compare rigorous at two precisions / sanity of radius
+t=time.time()
+B=build("dh","2","20",2)
+e=entry(B,0,0); print("entry(0,0):",e.real.str(30), "imag",e.imag.str(5),"  %.1fs"%(time.time()-t))
+e=entry(B,0,1); print("entry(0,1):",e.real.str(30),"imag",e.imag.str(5))
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"entry(0,0): [3.93890160335046266293272728206 +/- 1.38e-30] imag [+/- 1.17e-177]   4.1s\nentry(0,1): [3.01734740255544317352497303631 +/- 3.33e-30] imag [+/- 1.56e-177]\n","stderr":""}
