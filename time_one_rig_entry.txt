@@ -1,0 +1,13 @@
+cd /home/squire && python3 - << 'EOF'
+import sys, time, json; sys.path.insert(0,'/home/squire')
+from rigor import *
+from mpmath import mpf
+t=time.time()
+B=build("dh","5","520.943801",8); print("build %.1fs, N=%d, nonzero coef %d"%(time.time()-t,B['N'],len(B['coef'])))
+t=time.time(); e=entry(B,0,0); print("entry(0,0): %s   %.1fs"%(e.real.str(32),time.time()-t))
+ck=json.load(open('ck_dh_520.943801_5_8_96.json')); print("mp entry     :",ck['0'][0][0][:40])
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"build 0.1s, N=22026, nonzero coef 8562\nentry(0,0): [25.197993682141482638355625885 +/- 7.61e-28]   6.8s\nmp entry     : 25.1979936821414826383556258848846195233\n","stderr":""}
