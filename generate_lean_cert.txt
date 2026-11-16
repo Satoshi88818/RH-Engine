@@ -1,0 +1,107 @@
+cd /home/squire && cat > mk_lean.py << 'EOF'
+import json, sys
+from mpmath import mp, mpf, matrix, eigsy, nint
+mp.dps=60
+SC=mpf(10)**30
+def load(ckfile,m):
+    ck=json.load(open(ckfile)); A=matrix(m,m)
+    for j in range(m):
+        for k in range(j,m):
+            A[j,k]=A[k,j]=mpf(ck[str(j)][k-j][0])
+    return A
+def ints(A,shift=0):
+    m=A.rows; return [[int(nint(A[i,j]*SC))+(shift if i==j else 0) for j in range(m)] for i in range(m)]
+def fmt(M): return "[\n  "+",\n  ".join("["+", ".join(str(v) for v in row)+"]" for row in M)+"\n]"
+def bareiss_minors(M):
+    n=len(M); M=[r[:] for r in M]; prev=1; out=[]
+    for k in range(n):
+        piv=M[k][k]; out.append(piv)
+        for i in range(k+1,n):
+            for j in range(k+1,n):
+                M[i][j]=(M[i][j]*piv-M[i][k]*M[k][j])//prev
+        prev=piv
+    return out
+out=[]
+# ---- DH, T0=85.7 : indefinite
+A=load('ck_dh_85.7_4_14.json',14); ev,evec=eigsy(A); i0=min(range(14),key=lambda i: ev[i])
+x=[int(nint(evec[j,i0]*mpf(10)**20)) for j in range(14)]
+AI=ints(A)
+print("DH eigenvalue min:",mp.nstr(ev[i0],10))
+minors=bareiss_minors(AI); print("DH minors signs:",[1 if v>0 else (-1 if v<0 else 0) for v in minors])
+quad=sum(x[i]*AI[i][j]*x[j] for i in range(14) for j in range(14)); marg=sum(abs(v) for v in x)**2
+print("DH quad+margin <0 :",quad+marg<0, "  quad/1e70 =",float(quad)/1e70)
+# ---- zeta, T0=85.7 : PD with margin 8e-15 (scaled 8e15)
+Az=load('ck_zeta_85.7_4_14.json',14); evz=eigsy(Az,eigvals_only=True)
+print("zeta eigenvalues min:",mp.nstr(min(evz),8))
+marginZ=8*10**15
+AZ=ints(Az,shift=-marginZ)
+mz=bareiss_minors(AZ); print("zeta (A - 8e-15 I) minors all positive:",all(v>0 for v in mz))
+src=f"""/-
+Certificates for the finite-prime Weil matrices of Section 17.9 (arXiv-style note: Riemann_Hypothesis_Li_and_Monotonicity.md).
+
+WHAT IS CHECKED.  Exact integer arithmetic (kernel `decide`) on two 14x14 matrices, scaled by 10^30 and rounded to integers.
+The matrices are the numerical output of the prime-side Weil quadratic form on 14 Hann wave packets centred at T0 = 85.7
+(bandwidth a = 4, primes and prime powers up to 2980), computed at 50 digits, for
+  * the Davenport-Heilbronn function (matrix `A_dh`), and
+  * the Riemann zeta function (matrix `A_zeta`).
+
+WHAT IS NOT CHECKED.  That these integers are the true values of the Weil form (that needs the explicit formula and the
+quadrature, which are not formalised here): the entries are numerical.  Each integer is within 1/2 unit of the 50-digit
+value; the 50-digit values were checked against the zero side outside Lean (agreement ~1e-13 to 1e-24).
+-/
+
+abbrev Mat := List (List Int)
+
+def A_dh : Mat := {fmt(AI)}
+
+def A_zeta_shifted : Mat := {fmt(AZ)}   -- A_zeta - (8*10^15) * I
+
+def x_dh : List Int := {x}
+
+def dot (u v : List Int) : Int := (List.zipWith (· * ·) u v).foldl (· + ·) 0
+def mulVec (A : Mat) (x : List Int) : List Int := A.map (fun r => dot r x)
+def quad (A : Mat) (x : List Int) : Int := dot x (mulVec A x)
+def l1 (x : List Int) : Int := x.foldl (fun s v => s + Int.ofNat v.natAbs) 0
+
+/-- Bareiss fraction-free elimination; returns the successive pivots, which equal the leading principal minors. -/
+def minors (M : Mat) : List Int := Id.run do
+  let n := M.length
+  let mut a : Array (Array Int) := (M.map List.toArray).toArray
+  let mut prev : Int := 1
+  let mut out : Array Int := #[]
+  for k in [0:n] do
+    let piv := a[k]![k]!
+    out := out.push piv
+    for i in [k+1:n] do
+      let mut row := a[i]!
+      for j in [k+1:n] do
+        row := row.set! j ((a[i]![j]! * piv - a[i]![k]! * a[k]![j]!) / prev)
+      a := a.set! i row
+    prev := piv
+  return out.toList
+
+def signChanges : List Int → Nat
+  | a :: b :: rest => (if (a > 0 && b < 0) || (a < 0 && b > 0) then 1 else 0) + signChanges (b :: rest)
+  | _ => 0
+
+/-- (1) The Davenport-Heilbronn matrix has a direction of negative curvature, robust to rounding of every entry by 1 unit. -/
+theorem dh_negative : quad A_dh x_dh + (l1 x_dh) * (l1 x_dh) < 0 := by decide
+
+/-- (2) Inertia of the Davenport-Heilbronn matrix: no vanishing leading minor and exactly one sign change in 1, D_1, ..., D_14
+    (Jacobi / Sylvester: exactly one negative eigenvalue). -/
+theorem dh_one_negative : (minors A_dh).all (· != 0) = true ∧ signChanges (1 :: minors A_dh) = 1 := by decide
+
+/-- (3) zeta: A_zeta - 8e-15 I has all leading principal minors positive, i.e. A_zeta >= 8e-15 I (Sylvester). -/
+theorem zeta_margin : (minors A_zeta_shifted).all (· > 0) = true := by decide
+
+#eval (minors A_dh).map (fun v => if v > 0 then (1:Int) else if v < 0 then -1 else 0)
+#eval quad A_dh x_dh
+"""
+open('Certificates.lean','w').write(src)
+print("written")
+EOF
+python3 mk_lean.py
+
+Response:
+
+{"returncode":0,"stdout":"DH eigenvalue min: -12.74662406\nDH minors signs: [1, 1, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]\nDH quad+margin <0 : True   quad/1e70 = -12.746624063257151\nzeta eigenvalues min: 8.7598485e-15\nzeta (A - 8e-15 I) minors all positive: True\nwritten\n","stderr":""}
