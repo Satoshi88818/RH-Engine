@@ -1,0 +1,13 @@
+import os, sys, json, time
+import numpy as np
+os.environ.setdefault("WEIL_DPS", "140")
+import weil_experiment as WE
+L = float(sys.argv[1]); out = []
+for N in [int(x) for x in sys.argv[2].split(",")]:
+    t0 = time.time(); r = WE.run(L, N); r['secs'] = time.time() - t0; out.append(r)
+    sc = np.array(r['sign_changes']); zs = WE.ZEROS
+    matched = [(float(z), float(np.min(np.abs(sc - z))) if len(sc) else None) for z in zs[:10]]
+    nm = sum(1 for z, d in matched if d is not None and d < 0.05)
+    first_bad = next((i + 1 for i, (z, d) in enumerate(matched) if d is None or d >= 0.05), None)
+    print(f"L={L} N={N}: {r['secs']:.0f}s  min eig = {r['min_full']}  next = {r['eig_full'][1]}   first zeros matched within 0.05: {nm}/10 (first miss: zero #{first_bad})   dists = {[round(d,3) for z,d in matched[:8]]}", flush=True)
+    json.dump(out, open(sys.argv[3], 'w'))
