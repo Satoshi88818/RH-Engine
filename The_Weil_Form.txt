@@ -1,0 +1,67 @@
+# The Weil form on test functions supported in [1/λ, λ]: positivity margin and prolate structure
+
+## Summary
+
+I built the Weil quadratic form on test functions supported in [1/λ, λ] (L = ln λ) from the **arithmetic side only**: the pole terms, the archimedean (Γ-factor) term, and the primes whose powers lie in the support. I checked it against the sum over the published zeros, then diagonalised it in high precision.
+
+1. **The arithmetic form equals the zero sum.** After adding the computed tail of the truncated zero sum, the arithmetic and zero-side matrices agree to 1.1×10⁻¹⁰ at L = 0.3 (no primes) and L = 0.9 (primes 2, 3, 5 and prime powers). Without the tail correction the difference is 1.35×10⁻⁴ and 6.1×10⁻⁵, which is exactly the tail of the zero sum (e.g. √((2i+1)(2j+1))·(2/L)·(ln(T/2π)+1)/(2πT) = 1.35×10⁻⁴ for i = j = 5, T = 1.13×10⁶). So the form is, numerically, the Gram matrix of the exponentials e^{iγu} indexed by the zeros.
+2. **Positivity margin.** The full form is positive for every support size tested (L = 0.25 to 1.1, up to 40 basis functions), but its smallest eigenvalue collapses super-exponentially: 3.3×10⁻² (L = 0.25), 9.4×10⁻⁷ (L = 0.5), 4×10⁻¹² (L = 0.7), 6.3×10⁻²⁵ (L = 1.1, 40 functions). There is no spectral gap.
+3. **The primes are needed from p = 2.** The archimedean term alone gives the same form for λ² < 2 (L < 0.3466; difference 1.5×10⁻⁷ at L = 0.3466). It stays positive until about L = 0.365 and first has a negative eigenvalue at L = 0.38 (λ² = 2.14); at L = 0.5 and 0.7 it has two negative eigenvalues (smallest −0.32 and −0.73). With the primes included the form stays positive.
+4. **Prolate structure and the low zeros.** The Fourier transform of the minimal eigenvector dips at the zeta zeros. At L = 0.7 the first 6 zeros are reproduced to within 0.02 (N = 32). At L = 1.1 with N = 40, **9 of the first 10 zeros** are reproduced to within 0.05 (the first six to better than 10⁻³), using only primes up to 9 and no zeros. The count grows with N (1, 1, 3, 3, 4, 6 leading zeros for N = 8, 12, 16, 20, 24, 32).
+
+This is consistent with what Connes and Consani describe for the archimedean place (I recall their statement that minuscule eigenvalues of the Weil form and the corresponding eigenvectors encode low-lying zeros; I have not checked their details against this computation).
+
+It does not close the gap discussed earlier. Everything here is a finite-dimensional, finite-support statement. The form is positive, but positivity on all supports is RH.
+
+## 1. Setting
+
+For a real test function g supported in [−L, L] (u = ln x), write ĝ(r) = ∫ g(u)e^{−iru}du. The Weil explicit formula for h(r) = |ĝ(r)|² gives, with A(x) = ∫ g(u)g(u + x)du and P_± = ∫ g(u)e^{±u/2}du,
+
+> Σ_γ |ĝ(γ)|² = 2P₊P₋ − (ln π + γ_E)A(0) + ∫₀^∞ 2[A(0)e^{−2x} − A(x)e^{−x/2}]/(1 − e^{−2x}) dx − 2 Σ_n Λ(n)n^{−1/2}A(ln n).
+
+The archimedean integral comes from (1/2π)∫h(r) Re ψ(¼ + ir/2)dr, rewritten in the log variable (so it needs only A). A is supported in [−2L, 2L], so only n ≤ λ² enter. I used the Legendre basis ψ_k(u) = √((2k+1)/2L) P_k(u/L) (orthonormal, exactly supported), computed the matrix in 50–170 digit arithmetic with exact Gauss–Legendre quadrature, and symmetrised the bilinear form.
+
+## 2. Results
+
+| L | λ² | primes in support | smallest eigenvalue, full form | smallest eigenvalue, archimedean only |
+|---|---|---|---|---|
+| 0.25 | 1.65 | none | 3.3×10⁻² | same |
+| 0.34 | 1.97 | none | positive | same |
+| 0.365 | 2.07 | 2 | positive | positive |
+| 0.38 | 2.14 | 2 | positive | **negative** |
+| 0.5 | 2.72 | 2 | 9.4×10⁻⁷ | −0.32 (2 negative) |
+| 0.7 | 4.06 | 2, 3 | 4×10⁻¹² | −0.73 (2 negative) |
+
+(N = 24 basis functions; exact values are in `weil_sweepA.json` and `weil_transition.json`.)
+
+**Convergence at L = 0.7:** the smallest eigenvalue falls from 1.9×10⁻⁶ (N = 8) to 4.7×10⁻¹³ (N = 32) and has not converged; the limit as N → ∞ is 0 for each support. **Spectrum at L = 1.1, N = 40:** all 40 eigenvalues positive, from 6×10⁻²⁵ to 4.7, rising roughly geometrically for the first ~17 and then flat.
+
+![Weil form: positivity margin and prolate structure](rh_weil_archimedean.png)
+
+## 3. Interpretation
+
+- Validation shows that the arithmetic side (primes, Γ-factor, poles) reproduces the zero sum to 10⁻¹⁰, a direct check of the explicit formula with primes.
+- On [1/λ, λ] with λ² < 2 the archimedean term is the whole form; once λ² > 2 the archimedean term alone fails to be positive and the prime 2 is needed. This is the quantitative content of "Weil positivity needs the primes".
+- The minuscule eigenvalues reflect that a function of exponential type L can make |ĝ| tiny at many zeros at once. Their eigenvectors make |ĝ| vanish at the leading zeros, so the zeros show up in the arithmetic form before any zero is put in.
+
+## 4. Limitations
+
+- Legendre basis (non-smooth at the ends), at most 40 functions, support up to L = 1.1.
+- The minimal eigenvalues are not converged in N; "number of zeros reproduced" depends on N.
+- A finite-dimensional positivity result at finite support says nothing about RH; the infinite family is RH.
+- I did not compare with Connes–Consani's prolate operator quantitatively.
+
+## 5. Next steps
+
+- Compare the eigenvectors with prolate spheroidal functions and the decay of the eigenvalues with the prolate prediction.
+- Push L higher with a smoother, better-conditioned basis, to see how many zeros the arithmetic form reproduces and how the primes added at each step change the margin.
+
+## Files
+
+`weil_form.py` (arithmetic-side form), `weil_experiment.py`, `weil_convergence.py`, `build_weil.py`; results `weil_sweepA.json`, `weil_transition.json`, `weil_convA.json`, `weil_convB.json`; figure `rh_weil_archimedean.png`. They use `odlyzko/zeros6`.
+
+```bash
+python weil_form.py 0.9 8                         # validation against the zeros
+WEIL_DPS=90 python weil_experiment.py 24 0.25,0.5,0.7 out.json
+WEIL_DPS=170 python weil_convergence.py 1.1 40 out2.json
+```
