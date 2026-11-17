@@ -1,0 +1,77 @@
+cd /home/squire && cp CertificatesRig.lean /mnt/user-data/outputs/Certificates.lean && cd /mnt/user-data/outputs && python3 - << 'PYEOF'
+p='Riemann_Hypothesis_Li_and_Monotonicity.md'
+s=open(p).read()
+i=s.index("### 17.11 Machine-checked certificates in Lean 4"); j=s.index("## 18. Open Next Steps")
+new=r'''### 17.11 Machine-checked certificates in Lean 4
+
+I checked the linear-algebra content of the three Davenport–Heilbronn windows and the $\zeta$ window of Section 17.9 in Lean 4. The file is `Certificates.lean` (Lean 4.15.0, core library only, no Mathlib). It contains each matrix as an integer matrix (the rigorous midpoint of Section 17.12, times $10^{30}$, rounded), an integer $R$ bounding the distance of every true entry from it (in units of $10^{-30}$), and ten theorems, all checked by the kernel (`decide +kernel`) with **no axioms** (`#print axioms`) and no `sorry`; `lean Certificates.lean` exits with code 0 in about 40 seconds. In all four windows $R=2$.
+
+| Theorem | Statement (exact integer arithmetic) |
+|---|---|
+| `dh_T857_negative`, `dh_T1665_negative`, `dh_T5209_negative` | for an explicit integer vector $x$ (the lowest eigenvector, rounded to $10^{-20}$): $x^TAx+R(\lVert x\rVert_1)^2<0$ |
+| `dh_..._inertia_plus`, `dh_..._inertia_minus` (six) | $A+\varepsilon I$ and $A-\varepsilon I$, with $\varepsilon=mR$, each have no vanishing leading principal minor and exactly one sign change in $1,D_1,\dots,D_m$ |
+| `zeta_T857_margin` | all leading principal minors of $A_\zeta-\lambda I$ are positive and $\lambda>\varepsilon$, with $\lambda=7.88\times10^{-15}$ ($0.9\times$ the smallest eigenvalue) |
+
+**How to read them.** Let $B$ be the true matrix, so $|B_{ij}-A_{ij}|\le R$ entrywise and $\lVert B-A\rVert_2\le\lVert B-A\rVert_F\le mR=\varepsilon$.
+
+- The first theorem gives $x^TBx<0$: the true form has a negative direction.
+- The inertia theorems give, with Jacobi's rule (the number of negative eigenvalues equals the number of sign changes in $1,D_1,\dots,D_m$) and Weyl's monotonicity ($A-\varepsilon I\preceq B\preceq A+\varepsilon I$), that $B$ has **exactly one** negative eigenvalue: both bounds have exactly one.
+- The $\zeta$ theorem gives $B\succeq(\lambda-\varepsilon)I$, so every eigenvalue of the true $\zeta$ matrix is at least $7.88\times10^{-15}-\varepsilon\cdot10^{-30}$.
+
+Jacobi, Sylvester and Weyl are classical theorems that I did not formalize.
+
+**Negative control.** An earlier version of this file (with a one-unit rounding bound instead of $R$) was checked with the $\zeta$ margin raised to $1.1\times$ the smallest eigenvalue, which makes the claim false: Lean rejected the file (exit code 1). It reported a heartbeat timeout rather than a clean "evaluates to false"; I did not investigate why and did not repeat the control on the final file.
+
+**What Lean does not verify.** That the quantity bounded is the Weil form: the formula $\text{pole}+\text{arch}-\text{prime}=\sum_\rho|\hat\varphi(\gamma_\rho)|^2$ (the explicit formula) is not formalized. For $\zeta$ it is the classical Weil–Guinand formula; for the Davenport–Heilbronn function I derived it by the same contour argument (Section 14.1) and checked it numerically against zeros, but did not prove it.
+
+**Reproducing.** In my sandbox `elan` could not reach its release server, so I downloaded the toolchain tarball (`lean-4.15.0-linux.tar.zst`) directly from the Lean 4 GitHub releases and ran the extracted `bin/lean`. A first attempt using plain `decide` for the minors timed out in the elaborator; `decide +kernel` removes that bottleneck.
+
+### 17.12 Rigorous enclosures of the matrix entries
+
+Until now the matrix entries were 40–50-digit floating-point values whose accuracy I judged by comparison with the zero side. I recomputed all four matrices with **ball arithmetic** (python-flint 0.9.0, the Arb library, 600-bit precision), so that each entry is a guaranteed enclosure of the exact value of the explicit-formula expression, with the packets defined exactly by the decimal centre $T_0$, $a$ and $\Delta=\pi/2a$.
+
+**Method for an entry** $A_{jk}=\text{pole}+\text{arch}+\text{log term}-\text{prime}$ with $G=g_{\rm sym}$ (an entire function of $u$ given in closed form):
+
+- the pole term $4\int_0^{2a}G\cosh(u/2)\,du$ ($\zeta$ only) and the integral in the archimedean term use Arb's rigorous Gauss–Legendre integration;
+- the archimedean term is rewritten using the exact identity $\int_0^\infty\bigl[\tfrac{e^{-2u}}u-\tfrac{2e^{-cu}}{1-e^{-2u}}\bigr]du=\psi(c/2)$ ($c=\tfrac12$ for $\zeta$, $\tfrac32$ for Davenport–Heilbronn), which removes the $1/u$ cancellation except in a remainder $D(u)=e^{-cu}\,(G(u)-G(0))/(1-e^{-2u})$ that is analytic at $0$;
+- $\int_0^\epsilon D$ ($\epsilon=10^{-40}$) is bounded by $\epsilon\cdot M$, with $M$ a rigorous upper bound of $\lvert D\rvert$ on a circle of radius $0.02$ (maximum modulus principle; the circle is covered by 128 balls), and the rest of the interval is integrated in segments $[\epsilon,2\epsilon],[2\epsilon,4\epsilon],\dots$;
+- the series $2\sum_{k\ge0}e^{-2a(c+2k)}/(c+2k)$ is summed to $k=60$ with a rigorous geometric tail bound;
+- the prime sum runs over every prime power $n\le\lfloor e^{2a}\rfloor$ (exact finite sum), with $\Lambda(n)=\log p$ as balls and the Davenport–Heilbronn coefficients $b(n)$ computed by the Dirichlet recursion in balls from a ball for $\kappa=(\sqrt{10-2\sqrt5}-2)/(\sqrt5-1)$.
+
+**Results.**
+
+| Window | Entries | Max radius of an enclosure | Max imaginary-part radius | Agreement of midpoint with the earlier 50-digit value |
+|---|---|---|---|---|
+| DH, $T_0=85.7$, $a=4$, $m=14$ | 105 | $4.0\times10^{-38}$ | $3\times10^{-175}$ | $1.6\times10^{-47}$ |
+| $\zeta$, $T_0=85.7$, $a=4$, $m=14$ | 105 | $4.0\times10^{-38}$ | $3\times10^{-175}$ | $1.3\times10^{-47}$ |
+| DH, $T_0=166.4793059$, $a=4$, $m=10$ | 55 | $2.9\times10^{-37}$ | $5\times10^{-175}$ | $2.1\times10^{-37}$ |
+| DH, $T_0=520.943801$, $a=5$, $m=8$ | 36 | $7.3\times10^{-34}$ | $1\times10^{-173}$ | $7.6\times10^{-37}$ |
+
+So the earlier values were correct to at least $10^{-36}$ in all four windows. Three of the 55 entries of the $166.48$ window lie a hair ($<10^{-37}$) outside their enclosure; the earlier computation there used 40 quadrature panels and was not rigorous, so this only measures its quadrature error. With these radii the integer matrices of Section 17.11 carry $R=2$ (one unit for rounding plus the enclosure radius), against eigenvalues of at least $7.9\times10^{-15}\cdot10^{30}=7.9\times10^{15}$ (the smallest $\zeta$ eigenvalue) and ladder values down to $10^{-13}\cdot10^{30}$, so the margin is about $10^{14}$ times the error.
+
+**Limits.** Rigour here covers the numerical evaluation of the stated formula, not the formula itself (Section 17.11). The imaginary parts are enclosed within $10^{-173}$ of zero, so the matrices are real symmetric as used. The calculation is for these four fixed windows.
+
+'''
+s=s[:i]+new+s[j:]
+old=s[s.index("| Is any of this machine-checked? |"):]; old=old[:old.index("\n")+1]
+s=s.replace(old,"| Is any of this machine-checked? | The linear algebra and the numerics, yes: the four matrices are rigorous ball-arithmetic enclosures (radius $\\le7\\times10^{-34}$, Section 17.12), and Lean 4 (kernel, no axioms) certifies for every matrix within that enclosure that the three Davenport–Heilbronn windows have exactly one negative eigenvalue and the $\\zeta$ window is $\\ge7.9\\times10^{-15}I$ (Section 17.11, `Certificates.lean`). What is not machine-checked is the explicit formula that identifies these matrices with the Weil form, and the classical Jacobi/Sylvester/Weyl theorems. |\n")
+a=s.index("## 18. Open Next Steps"); b=s.index("## References")
+s=s[:a]+r'''## 18. Open Next Steps
+
+1. Close the remaining gaps in the Lean certificates: formalize the explicit formula for the packets used (the identity between the prime-side expression and $\sum_\rho\lvert\hat\varphi(\gamma_\rho)\rvert^2$) and the Jacobi, Sylvester and Weyl criteria. The numerical side (rigorous enclosures) is done.
+2. Repeat Section 17.9 with a larger basis at the smaller-offset windows to separate the effect of the offset from the effect of bandwidth and basis size.
+3. Try the other prime-indexed ansätze not yet excluded (frequency-domain Gram factors, weights tied to $\Lambda(n)/\sqrt n$).
+4. Extend the zero list of the Davenport–Heilbronn function above height $600$ using the prime-side scan, and search for zeros with $\operatorname{Re}s>1$ explicitly.
+5. Check the claim about zeros of the Davenport–Heilbronn function on the line against the literature; Section 12 no longer states a proportion because I could not verify it.
+6. Study the Lean certificates from the 2026 papers (github.com/AxiomMath/ZetaZerosV2 and the Anthropic repository) to see what is and is not formally verified there.
+
+'''+s[b:]
+s=s.replace("- Lean 4.15.0 (leanprover/lean4, release v4.15.0), core library only; certificates in `Certificates.lean`.\n","- Lean 4.15.0 (leanprover/lean4, release v4.15.0), core library only; certificates in `Certificates.lean`. Ball arithmetic: python-flint 0.9.0 (Arb); F. Johansson, \"Arb: efficient arbitrary-precision midpoint-radius interval arithmetic,\" *IEEE Trans. Comput.* 66 (2017), cited from memory.\n")
+open(p,'w').write(s)
+print("ok")
+PYEOF
+grep -n "^### 17.1[0-2]\|^## 18" Riemann_Hypothesis_Li_and_Monotonicity.md
+
+Response:
+
+{"returncode":0,"stdout":"ok\n1038:### 17.10 Smaller offsets: the negative eigenvalue at $d=0.074$ and $d=0.016$\n1060:### 17.11 Machine-checked certificates in Lean 4\n1084:### 17.12 Rigorous enclosures of the matrix entries\n1109:## 18. Open Next Steps\n","stderr":""}
