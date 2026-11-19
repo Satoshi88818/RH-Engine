@@ -1,0 +1,60 @@
+cd /mnt/user-data/outputs && python3 - << 'PYEOF'
+p='Riemann_Hypothesis_Li_and_Monotonicity.md'
+s=open(p).read()
+i=s.index("## 18. Open Next Steps")
+add=r'''### 17.14 The remaining factorization ansätze
+
+Section 17.7 excluded one prime-indexed factorization (sampling the packets at $\log n$). I tested the remaining ones named in the open steps on the $T_0=85.7$ window ($a=4$, $m=14$, primes to $2980$) using the rigorous matrices of Section 17.12, for $\zeta$ and for Davenport–Heilbronn (DH).
+
+**Setting.** In the frequency domain the matrix is a Gram matrix with a symbol, $A_{jk}=\frac1{2\pi}\int\hat\varphi_j\hat\varphi_k\,\sigma(r)\,dr+\text{pole}$, where $\sigma_P(r)=\operatorname{Re}\psi(\tfrac14+\tfrac{ir}2)-\log\pi-\Pi_P(r)$ and $\Pi_P(r)=2\sum_{n\le P}\Lambda(n)n^{-1/2}\cos(r\log n)$ (for DH, $\operatorname{Re}\psi(\tfrac34+\tfrac{ir}2)+\log\tfrac5\pi$ and $b(n)$). If some symbol built from the primes were nonnegative, $A$ would be a manifest sum of squares indexed by frequency with prime-built weights.
+
+**Ansatz 1: the symbol built from primes $\le P$ is pointwise nonnegative.** It is not.
+
+| Function | $P$ | $\min\sigma_P$ | $\max\sigma_P$ | Fraction of $r\in[20,200]$ with $\sigma_P<0$ |
+|---|---|---|---|---|
+| $\zeta$ | 2980 | $-8.2$ | $21.3$ | $0.413$ |
+| $\zeta$ | 22026 | $-18.1$ | $32.0$ | $0.427$ |
+| DH | 2980 | $-40.8$ | $75.7$ | $0.363$ |
+| DH | 22026 | $-88.6$ | $143.3$ | $0.389$ |
+
+The matrix is positive semidefinite for $\zeta$ only because the packets average the symbol over a width of about $\pi/a$ and its negative stretches cancel; the symbol itself oscillates with an amplitude well above its mean ($2.7$) and goes negative on more than $40\%$ of the range. So no sum-of-squares representation with this symbol exists, and none with a Dirichlet-polynomial sum of squares either (that would make it nonnegative).
+
+**Ansatz 2: a positive frequency-domain Gram factor with free weights (the truncated moment problem).** Fit $A=\sum_rx_r\,\pi(r)\pi(r)^T$ with $x_r\ge0$ on a $0.01$ grid over $[55.7,115.7]$, $\pi(r)_j=\hat\varphi_j(r)$, by nonnegative least squares.
+
+- **$\zeta$:** relative residual $2.6\times10^{-5}$. The fit uses seven atoms; four of them are at $82.910,\,84.735,\,87.425,\,88.809$, **the four zeta zeros nearest the window, each with weight $1.000$**. The remaining weight sits in one lump of weight $14.67$ at $72.31$, which stands in for the many farther zeros (the representation is not unique at that level).
+- **DH:** relative residual $0.141$, and the eigenvalues of $A-\text{fit}$ have minimum $-12.84$ (against the matrix's own $-12.75$). The negative direction of the off-line zero cannot be represented by any positive frequency-domain weights.
+
+So a positive frequency-indexed factorization exists for $\zeta$ in this window, is found from primes alone, and recovers central zeros with exact unit weights. It is indexed by zeros, not by primes, and fails for DH exactly where the matrix is indefinite.
+
+**Ansatz 3: termwise or subset domination of prime terms by the main term.** With $S_n=w_n\,[G_{jk}(\log n)]$ the compressed translation for prime power $n$ ($465$ terms up to $2980$), the matrix is $\text{Main}-\sum_nS_n$ with $\lVert\text{Prime}\rVert=24.1$, $\lVert\text{Main}\rVert=38.8$:
+
+- Random half-subsets of the prime terms: $\text{Main}-\sum_{n\in\text{subset}}S_n$ is positive semidefinite in only **4 of 300** cases (median $\lambda_{\min}=-0.36$, minimum $-16.3$).
+- Partial sums in increasing order were already seen to be indefinite for $88\%$ of the range (Section 17.7).
+
+**Ansatz 4: weights tied to $\Lambda(n)/\sqrt n$, and how rigid they are.** The smallest eigenvalue of the $\zeta$ matrix is $8.76\times10^{-15}$, so I asked how far each prime weight can move.
+
+- Scaling **all** prime weights by $1+t$: $\lambda_{\min}=+2.8\times10^{-12}$ at $t=-10^{-3}$ and $+1.0\times10^{-13}$ at $t=-10^{-6}$, but $-1.9\times10^{-5}$ at $t=+10^{-6}$ and $-2.0\times10^{-2}$ at $t=+10^{-3}$. Positivity holds for $t\le0$ and fails immediately for $t>0$; to first order the threshold is $t^*\approx8.8\times10^{-15}/19\approx5\times10^{-16}$. So **the weights $\Lambda(n)/\sqrt n$ sit within a relative $5\times10^{-16}$ of the largest values that keep the form positive** in this window (this reflects the vanishing margin of Section 14.5).
+- Changing **one** prime term's weight: first-order critical relative change $\varepsilon^*_n=\lambda_{\min}/\lvert v^TS_nv\rvert$ ($v$ the lowest eigenvector): minimum $3.8\times10^{-9}$ (at $n=11$), median $5.8\times10^{-4}$, up to $1.4\times10^4$ for large $n$ that barely couple to $v$. The harmful direction depends on $n$: reducing the weight of $n=2,3,4,5,13$ breaks positivity, increasing it breaks it for $n=7,11$. There is no monotone direction in which a prime term is "dominated" or "dominating".
+
+**What this shows**
+
+- **No prime-indexed factorization found, in any of the forms tried.** The only factorization that works is indexed by zeros (frequencies), and it is recoverable from the prime-side matrix.
+- **Positivity needs the exact coefficients.** The $\zeta$ window is positive at a relative precision of about $5\times10^{-16}$ in the overall prime weight and about $10^{-8}$ in a single small prime; an argument that proves positivity from the primes has to preserve this much structure and cannot go through term-by-term bounds, which lose a factor of about $6$ (Section 17.7).
+- **Where this stops.** One window, one bandwidth, one basis, and a list of ansätze that is not exhaustive. The factorization that actually proves the Riemann hypothesis for curves over finite fields (the Hodge index theorem on $C\times C$) has no counterpart that I can test here, and Connes' adelic formulation (a continuous place index including the archimedean place) is not covered by these tests.
+
+'''
+s=s[:i]+add+s[i:]
+old=s[s.index("| Does the prime-side matrix factor over primes? |"):]; old=old[:old.index("\n")+1]
+s=s.replace(old,"| Does the prime-side matrix factor over primes? | Not in any form tried (Sections 17.7, 17.14). It factors over zeros ($A=V^\\dagger V$) and a nonnegative frequency-domain Gram fit from primes alone recovers the four central zeta zeros with weight $1.000$ each; but the prime-built symbol is negative on $41$–$43\\%$ of frequencies, only 4 of 300 random prime subsets keep the form positive, and the prime weights sit within about $5\\times10^{-16}$ (relative) of the threshold where positivity fails. |\n")
+a=s.index("## 18. Open Next Steps"); b=s.index("## References")
+sec=s[a:b]
+sec=sec.replace("3. Try the other prime-indexed ansätze not yet excluded (frequency-domain Gram factors, weights tied to $\\Lambda(n)/\\sqrt n$).\n","3. Test factorization ansätze not covered in Section 17.14: Connes' adelic form with a continuous place index including the archimedean place, and a finite-field analogue (curves over $\\mathbb F_q$, where the Hodge index theorem supplies the positivity) to see what a prime-indexed factorization looks like when it exists.\n")
+s=s[:a]+sec+s[b:]
+open(p,'w').write(s)
+print("ok")
+PYEOF
+grep -n "^### 17.14\|^## 18" Riemann_Hypothesis_Li_and_Monotonicity.md
+
+Response:
+
+{"returncode":0,"stdout":"ok\n1151:### 17.14 The remaining factorization ansätze\n1191:## 18. Open Next Steps\n","stderr":""}

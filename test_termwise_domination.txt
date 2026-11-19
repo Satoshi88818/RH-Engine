@@ -1,0 +1,51 @@
+cd /home/squire && cat > ansatz3.py << 'EOF'
+import numpy as np, json, re, io, contextlib
+from mpmath import mp, mpf, matrix, eigsy
+buf=io.StringIO()
+with contextlib.redirect_stdout(buf):
+    from wu import spec, g_sym, Lam, bco
+    import ansatz1 as a1
+mp.dps=50
+m=14; a=4.0; T0=85.7; Dl=np.pi/(2*a); ts=T0+(np.arange(m)-(m-1)/2)*Dl
+specs=[spec("W",a,t) for t in ts]
+N=int(np.exp(2*a))
+def Smats(c):
+    nn=np.arange(2,N+1); cn=c[2:N+1]; nz=cn!=0; nn=nn[nz]; cn=cn[nz]
+    u=np.log(nn.astype(float)); S=np.zeros((len(nn),m,m))
+    for j in range(m):
+        for k in range(j,m):
+            g=g_sym(u,specs[j],specs[k],a).real
+            S[:,j,k]=S[:,k,j]=2*cn/np.sqrt(nn)*g
+    return nn,S
+def load_mp(fn):
+    A=matrix(m,m)
+    for line in open(fn):
+        r=json.loads(line); A[r['j'],r['k']]=A[r['k'],r['j']]=mpf(re.sub(r'[\[\]]','',r['mid']).split('+/-')[0])
+    return A
+nn,S=Smats(Lam)
+Az=a1.Az; Amain=Az+S.sum(0)            # Main = A + Prime
+print("prime-power terms:",len(nn),"; ||Prime||_2=%.2f, ||Main||_2=%.2f, ||A||_2=%.2f"%(np.linalg.norm(S.sum(0),2),np.linalg.norm(Amain,2),np.linalg.norm(Az,2)))
+# (i) first-order rigidity of each prime term
+Amp=load_mp('rigck_zeta_85.7_4_14.jsonl'); ev,evec=eigsy(Amp); i0=min(range(m),key=lambda i: ev[i]); lam=float(ev[i0]); v=np.array([float(evec[j,i0]) for j in range(m)])
+q=np.array([v@S[i]@v for i in range(len(nn))])
+eps=lam/np.abs(q)          # relative change of the weight of prime-power n that makes lambda_min cross zero (first order)
+print("(i) smallest eigenvalue %.3e; |v^T S_n v|: median %.3f; "%(lam,np.median(np.abs(q))))
+order=np.argsort(eps)
+print("    critical relative change of one prime term's weight, eps*_n (first order): min %.2e (n=%d), median %.2e, max %.2e (n=%d)"%(eps.min(),nn[order[0]],np.median(eps),eps.max(),nn[order[-1]]))
+for n_ in [2,3,4,5,7,11,13]:
+    i=list(nn).index(n_); direction="reducing" if q[i]<0 else "increasing"
+    print(f"    n={n_:2d}: eps*={eps[i]:.2e}, positivity broken by {direction} its weight (v^T S_n v={q[i]:+.3f})")
+# (ii) random subsets of primes with full weight
+rng=np.random.default_rng(3); ok=0; mins=[]
+for _ in range(300):
+    y=rng.random(len(nn))<0.5; B=Amain-np.tensordot(y.astype(float),S,axes=1); lm=np.linalg.eigvalsh(B).min(); mins.append(lm); ok+= lm>-1e-6
+print("(ii) random half-subsets of the prime terms: Main - sum_{n in subset} w_n S_n is PSD in %d of 300 cases; lambda_min median %.2f, min %.2f"%(ok,np.median(mins),np.min(mins)))
+# (iii) rescaling all prime weights by (1+t): PSD only at t=0
+for t in [-1e-3,-1e-6,1e-6,1e-3]:
+    B=Amain-(1+t)*S.sum(0); print(f"(iii) all prime weights scaled by (1{t:+.0e}): lambda_min = {np.linalg.eigvalsh(B).min():+.3e}")
+EOF
+python3 ansatz3.py 2>&1 | grep -v "^T1\|^eigenvalues zeta"
+
+Response:
+
+{"returncode":0,"stdout":"prime-power terms: 465 ; ||Prime||_2=24.14, ||Main||_2=38.81, ||A||_2=50.49\n(i) smallest eigenvalue 8.760e-15; |v^T S_n v|: median 0.000; \n    critical relative change of one prime term's weight, eps*_n (first order): min 3.81e-09 (n=11), median 5.81e-04, max 1.40e+04 (n=2927)\n    n= 2: eps*=1.22e-08, positivity broken by reducing its weight (v^T S_n v=-0.000)\n    n= 3: eps*=1.60e-08, positivity broken by reducing its weight (v^T S_n v=-0.000)\n    n= 4: eps*=1.40e-08, positivity broken by reducing its weight (v^T S_n v=-0.000)\n    n= 5: eps*=6.04e-09, positivity broken by reducing its weight (v^T S_n v=-0.000)\n    n= 7: eps*=4.43e-09, positivity broken by increasing its weight (v^T S_n v=+0.000)\n    n=11: eps*=3.81e-09, positivity broken by increasing its weight (v^T S_n v=+0.000)\n    n=13: eps*=3.45e-08, positivity broken by reducing its weight (v^T S_n v=-0.000)\n(ii) random half-subsets of the prime terms: Main - sum_{n in subset} w_n S_n is PSD in 4 of 300 cases; lambda_min median -0.36, min -16.28\n(iii) all prime weights scaled by (1-1e-03): lambda_min = +2.776e-12\n(iii) all prime weights scaled by (1-1e-06): lambda_min = +1.044e-13\n(iii) all prime weights scaled by (1+1e-06): lambda_min = -1.909e-05\n(iii) all prime weights scaled by (1+1e-03): lambda_min = -1.993e-02\n","stderr":""}

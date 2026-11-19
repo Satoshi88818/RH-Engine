@@ -1,0 +1,18 @@
+cd /home/squire && WEIL_DPS=140 timeout 285 python3 - <<'EOF' 2>&1 | grep -v Warning
+import mpmath as mp, time, json
+import weil_form as WF
+mp.mp.dps = 140
+out = {}
+for N in (32,):
+    print(f"N = {N}: archimedean-only form, smallest eigenvalue vs L near L0 = ln(2)/2 = 0.34657", flush=True); out[N] = []
+    for L in (0.350, 0.355, 0.360, 0.365, 0.370):
+        t0 = time.time(); W = WF.Weil(L, N); M = W.matrix(); Ma = W.M_arch
+        Ea = mp.eigsy(mp.matrix(Ma), eigvals_only=True); Ef = mp.eigsy(mp.matrix(M), eigvals_only=True)
+        out[N].append((L, float(min(Ea)), float(min(Ef))))
+        print(f"  L={L:.3f}: min eig arch-only = {mp.nstr(min(Ea),6):>13}   min eig full = {mp.nstr(min(Ef),6):>12}   ({time.time()-t0:.0f}s)", flush=True)
+json.dump(out, open('weil_onset32.json','w'))
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"N = 32: archimedean-only form, smallest eigenvalue vs L near L0 = ln(2)/2 = 0.34657\n  L=0.350: min eig arch-only =    0.00123124   min eig full =   0.00119384   (12s)\n  L=0.355: min eig arch-only =    0.00113532   min eig full =   0.00101044   (12s)\n  L=0.360: min eig arch-only =    0.00108348   min eig full =  0.000850075   (12s)\n  L=0.365: min eig arch-only =    0.00106216   min eig full =  0.000711891   (11s)\n  L=0.370: min eig arch-only =    0.00105781   min eig full =  0.000593662   (13s)\n","stderr":""}
