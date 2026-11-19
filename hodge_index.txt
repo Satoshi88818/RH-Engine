@@ -1,0 +1,18 @@
+cd /home/squire && ls weil_form.py >/dev/null 2>&1 && WEIL_DPS=90 timeout 250 python3 - <<'EOF' 2>&1 | grep -v Warning
+import mpmath as mp, os
+import weil_form as WF
+mp.mp.dps = 90
+N = 24
+print("Signature of the Weil form WITHOUT pole terms (the 'Hodge-index' form):  Q0 = M - (P+ P- + P- P+),  N = 24")
+for L in (0.25, 0.34, 0.5, 0.7, 1.0):
+    W = WF.Weil(L, N); M = W.matrix(); Ma = W.M_arch; Pp, Pm = W.Pplus_minus()
+    def sig(Mat):
+        Q = [[Mat[i][j] - (Pp[i] * Pm[j] + Pm[i] * Pp[j]) for j in range(N)] for i in range(N)]
+        E = mp.eigsy(mp.matrix(Q), eigvals_only=True); neg = sum(1 for e in E if e < 0); return neg, mp.nstr(min(E), 6)
+    nf, mf = sig(M); na, ma = sig(Ma)
+    print(f"L={L:4}: full form: {nf} negative eigenvalue(s) (min {mf})   |   archimedean only: {na} negative (min {ma})")
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"Signature of the Weil form WITHOUT pole terms (the 'Hodge-index' form):  Q0 = M - (P+ P- + P- P+),  N = 24\nL=0.25: full form: 1 negative eigenvalue(s) (min -0.914534)   |   archimedean only: 1 negative (min -0.914534)\nL=0.34: full form: 1 negative eigenvalue(s) (min -1.26359)   |   archimedean only: 1 negative (min -1.26359)\nL= 0.5: full form: 1 negative eigenvalue(s) (min -1.98721)   |   archimedean only: 2 negative (min -1.72086)\nL= 0.7: full form: 1 negative eigenvalue(s) (min -2.86653)   |   archimedean only: 3 negative (min -2.14187)\nL= 1.0: full form: 1 negative eigenvalue(s) (min -4.30369)   |   archimedean only: 4 negative (min -2.61311)\n","stderr":""}

@@ -1,0 +1,33 @@
+cd /home/squire && cat > ansatz1.py << 'EOF'
+import numpy as np, json, re, io, contextlib
+from scipy.optimize import nnls
+from scipy.special import digamma
+buf=io.StringIO()
+with contextlib.redirect_stdout(buf):
+    from wu import spec, phihat, Lam, bco
+def load(fn,m):
+    A=np.zeros((m,m))
+    for line in open(fn):
+        r=json.loads(line); j,k=r['j'],r['k']; A[j,k]=A[k,j]=float(re.sub(r'[\[\]]','',r['mid']).split('+/-')[0])
+    return A
+m=14; a=4.0; T0=85.7; D=np.pi/(2*a); ts=T0+(np.arange(m)-(m-1)/2)*D
+Az=load('rigck_zeta_85.7_4_14.jsonl',m); Ad=load('rigck_dh_85.7_4_14.jsonl',m)
+print("eigenvalues zeta:",np.array2string(np.linalg.eigvalsh(Az)[:4],precision=3),"... DH:",np.array2string(np.linalg.eigvalsh(Ad)[:3],precision=3))
+# ---------- T1: pointwise symbol sigma_P(r) = M(r) - Pi_P(r)
+r=np.arange(20.0,200.0,0.01); N=int(np.exp(2*a)); n=np.arange(2,N+1)
+def pisum(c,r,N):
+    nn=np.arange(2,N+1); cn=c[2:N+1]; nz=cn!=0; nn=nn[nz]; cn=cn[nz]; out=np.zeros(len(r))
+    for i in range(0,len(nn),400):
+        out+=2*(cn[i:i+400]/np.sqrt(nn[i:i+400]))@np.cos(np.outer(np.log(nn[i:i+400]),r))
+    return out
+Mz=np.real(digamma(0.25+0.5j*r))-np.log(np.pi); Md=np.real(digamma(0.75+0.5j*r))+np.log(5/np.pi)
+for name,c,Mr in [("zeta",Lam,Mz),("DH",bco,Md)]:
+    for a_ in [4.0,5.0]:
+        N=int(np.exp(2*a_)); P=pisum(c,r,N); sig=Mr-P
+        print(f"T1 {name:4s} a={a_:.0f} (primes<= {N}): symbol sigma_P(r)=M-Pi on r in [20,200]: min {sig.min():.1f}, max {sig.max():.1f}, mean {sig.mean():.2f}; fraction negative {np.mean(sig<0):.3f}; rms Pi {np.sqrt(np.mean(P**2)):.1f} vs mean M {Mr.mean():.2f}")
+EOF
+python3 ansatz1.py
+
+Response:
+
+{"returncode":0,"stdout":"eigenvalues zeta: [9.346e-15 7.298e-13 1.733e-11 8.249e-10] ... DH: [-1.275e+01  4.650e-13  2.856e-10]\nT1 zeta a=4 (primes<= 2980): symbol sigma_P(r)=M-Pi on r in [20,200]: min -8.2, max 21.3, mean 2.73; fraction negative 0.413; rms Pi 6.2 vs mean M 2.72\nT1 zeta a=5 (primes<= 22026): symbol sigma_P(r)=M-Pi on r in [20,200]: min -18.1, max 32.0, mean 2.72; fraction negative 0.427; rms Pi 7.7 vs mean M 2.72\nT1 DH   a=4 (primes<= 2980): symbol sigma_P(r)=M-Pi on r in [20,200]: min -40.8, max 75.7, mean 4.32; fraction negative 0.363; rms Pi 8.7 vs mean M 4.33\nT1 DH   a=5 (primes<= 22026): symbol sigma_P(r)=M-Pi on r in [20,200]: min -88.6, max 143.3, mean 4.32; fraction negative 0.389; rms Pi 12.0 vs mean M 4.33\n","stderr":""}

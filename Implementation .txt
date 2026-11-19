@@ -1,0 +1,96 @@
+**Implementation roadmap for the proposed attack**
+
+It is already partially visible in the Connes–Consani literature: when the support parameter \(L\) (or \(\lambda = e^L\)) crosses a new prime power, the archimedean + incomplete-prime matrix acquires an extra negative direction; adding the contribution of that prime power restores the signature (exactly one negative eigenvalue in the “no-pole” form, or the expected positive-semidefinite behaviour after the pole term is restored). This is a rank-one (or low-rank) update phenomenon and is the natural place to look for an inductive mechanism.
+
+Below is a concrete, incremental implementation plan that re-uses the numerical infrastructure already developed in the long note (Hann packets / cosine bases, ball-arithmetic matrices, high-precision eigensolves, Lean certificates) and that can be calibrated against existing Connes–Consani–van Suijlekom codebases.
+
+### 1. Core object and code skeleton (build this first)
+
+Define the **truncated Weil form without pole terms**:
+\[
+Q_L^{\text{no-pole}}(f,g) = W_\infty(f,g) - \sum_{p^k\le e^{2L}} \frac{\Lambda(p^k)}{\sqrt{p^k}}\,g(\log p^k)
+\]
+where \(W_\infty\) is the archimedean contribution (digamma / \(\Gamma\)-factor term) and the sum runs only over the primes that fit inside the support. (The full form adds the two rank-one pole terms at \(s=0,1\).)
+
+**Practical realisation** (extend the existing matrix construction):
+
+- Basis: either the cosine basis \(\cos(k\pi v/L)\) on \([-L,L]\) (Connes–van Suijlekom style) or the Hann / Gaussian packets already used in Section 17 of the long note. Start with \(m=24\) as in the note, then increase.
+- Parameter: let \(L\) run continuously (or in fine steps \(\Delta L\sim 10^{-3}\)) from \(0.25\) to \(2.0\) or beyond. At each \(L\) form the symmetric matrix \(A(L)\) of \(Q_L^{\text{no-pole}}\).
+- Compute the ordered eigenvalues \(\lambda_1(L)\le\lambda_2(L)\le\dots\) and the inertia (number of negative eigenvalues) with high-precision arithmetic (mpmath 50–130 digits or Arb ball arithmetic as already done).
+- Also compute the full form (with poles) for comparison; under RH / known positivity it should stay non-negative after the first few primes.
+
+**Key diagnostic plots / data to collect**:
+- Inertia versus \(L\), with vertical lines at \(\log p^k\).
+- Individual eigenvalue trajectories \(\lambda_j(L)\) as \(L\) crosses each new prime power.
+- Size of the jump in the lowest eigenvalue(s) when the corresponding rank-one (or low-rank) prime update is added.
+
+This already reproduces the observation in the note and the analogous pictures in Connes–Consani (the “rescue” of the lowest eigenvalue by each new prime).
+
+### 2. Track the spectrum and look for rank-one / interlacing structure
+
+For each prime power \(q=p^k\) that enters at \(L=\log q\):
+
+- Form the rank-one (or low-rank) update matrix coming from that single term:
+  \[
+  U_q = c_q\, \mathbf{v}_q\mathbf{v}_q^T,\qquad
+  c_q = \frac{\log p}{\sqrt{q}},\quad
+  (v_q)_j = \hat\phi_j(\log q)
+  \]
+  (or the exact matrix element for the chosen basis).
+- Study the secular equation / interlacing of the eigenvalues of \(A(L^-)+U_q\) versus \(A(L^-)\).
+- Record whether the number of negative eigenvalues decreases by exactly one, and whether the eigenvectors transform in a controllable way (Cauchy interlacing, rank-one update formulae, etc.).
+
+If a clean inductive pattern appears (e.g. each new prime always “kills” exactly one negative direction that was created by the continuous growth of the archimedean term), this gives a concrete inductive strategy: prove that the signature remains \((1,\text{negative})\) (or the appropriate signature after poles) for all \(L\).
+
+This is precisely the structure invited by the Connes–Consani spectral-triple / \(\zeta\)-cycle constructions, where the truncated form is studied as a continuous family in the support parameter.
+
+### 3. Function-field calibration (the geometric control experiment)
+
+Implement the exact analogue for a curve \(C/\mathbb{F}_q\):
+
+- The intersection form on \(\operatorname{Pic}(C\times C)\) (or on correspondences modulo numerical equivalence) has signature controlled by the Hodge index theorem: one positive direction, the rest negative.
+- The explicit formula / Weil form for the zeta function of \(C\) is completely explicit (Frobenius eigenvalues on \(H^1\)).
+- Compute the truncated intersection matrix (or the analogous Weil matrix built from the “primes” = closed points of given degree) as the degree bound grows, and watch how the signature evolves when new points of higher degree are added.
+
+Goal: identify the geometric operation that corresponds to “adding the next prime power and restoring one direction”. In the classical Weil proof this is ultimately the positivity coming from the Riemann–Roch / Hodge-index argument on the surface \(C\times C\). The hope is that the numerical pattern observed for \(\operatorname{Spec}\mathbb{Z}\) mirrors a piece of that argument, thereby suggesting what geometric object should play the rôle of \(C\times C\) in the number-field setting (adelic class space, absolute geometry of \(\operatorname{Spec}\mathbb{Z}\), etc.).
+
+Start with elliptic curves or hyperelliptic curves of small genus over small finite fields so that everything is computable by hand or with Sage/Magma.
+
+### 4. Dirichlet \(L\)-functions (universality test)
+
+Repeat the entire pipeline for a few Dirichlet \(L\)-functions (primitive characters mod 3,4,5,7,\ldots). Under GRH the same positivity / signature statements hold. Compare:
+
+- the rate at which new negative directions appear,
+- the size of the “rescue” by each prime,
+- whether the lowest eigenvectors still approximate the low zeros.
+
+If the pattern is essentially identical, the mechanism is not special to \(\zeta\) but is a general feature of \(L\)-functions with Euler products. If it differs markedly, the differences may point to the rôle of the Euler product versus the functional equation alone (the Davenport–Heilbronn comparison already performed in the long note).
+
+### 5. Search for a prime-side factorisation
+
+Attempt to write the no-pole matrix as a sum of elementary pieces indexed by primes (or by prime powers):
+
+- rank-one or rank-two updates attached to each \(\log p\),
+- Gram-matrix attempts with vectors supported on the prime logarithms,
+- Cholesky / LDL factorisations looking for a pattern,
+- comparison with the zero-side factorisation \(A=V^\dagger V\) already verified in Section 17.7 of the long note.
+
+As the note correctly anticipates, one expects to recover only the Gram matrix of the zeros; any extra arithmetic factorisation would be a major discovery. Even a negative result (cleanly documented) is useful.
+
+### 6. Practical engineering notes
+
+- **Reuse existing high-precision code.** The ball-arithmetic enclosures and Lean certificates of Sections 17.11–17.12 already give a rigorous platform for the linear-algebra statements. Extend the same enclosures to a continuous family in \(L\).
+- **Existing packages.** There is already open-source arbitrary-precision code for the Connes–van Suijlekom Galerkin matrices of the truncated Weil form (e.g. the `connes-cvs` repository and related 2026 work). It is worth inspecting and possibly interfacing with it rather than re-implementing the archimedean and prime sums from scratch.
+- **Precision requirements.** Near a prime-power crossing the lowest eigenvalues can be extremely small; 50–100 decimal digits (or rigorous ball arithmetic) are needed once \(L\gtrsim 1.5\). The previous 130-digit runs are a good starting point.
+- **What not to expect.** Finite truncations, no matter how large, cannot prove the uniform statement. They can only locate the mechanism and supply the inductive hypothesis that one would then try to prove for all \(L\).
+
+### Expected scientific output of the programme
+
+Even if the odds of a full proof remain low, each step produces checkable, publishable intermediate results:
+
+- precise eigenvalue trajectories and inertia tables for the no-pole form,
+- a clear numerical dictionary between the prime-power updates and the signature changes,
+- the analogous dictionary for function fields and for Dirichlet \(L\)-functions,
+- a documented (positive or negative) search for an arithmetic factorisation.
+
+That is already a substantial contribution to the laboratory study of the Weil form, and it directly addresses the geometric analogy that the original “narrow steep cone” idea was groping toward.
