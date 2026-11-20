@@ -1,0 +1,38 @@
+cd /mnt/user-data/outputs && python3 - <<'EOF'
+p='README_weil_archimedean.md'; s=open(p).read()
+def sub(a,b):
+    global s
+    assert a in s, a[:50]; s=s.replace(a,b)
+sub("3. **The primes are needed from p = 2.** The archimedean term alone gives the same form for λ² < 2 (L < 0.3466; difference 1.5×10⁻⁷ at L = 0.3466). It stays positive until about L = 0.365 and first has a negative eigenvalue at L = 0.38 (λ² = 2.14); at L = 0.5 and 0.7 it has two negative eigenvalues (smallest −0.32 and −0.73). With the primes included the form stays positive.",
+    "3. **The archimedean term alone fails once the prime 2 matters.** It gives the same form as the full one for λ² < 2 (L < 0.3466; difference 1.5×10⁻⁷ at L = 0.3466). It then stays positive slightly longer, with a smallest eigenvalue that is converged in N (1.06×10⁻³ at L = 0.37 for both N = 16 and N = 32), and **first has a negative eigenvalue at L_c = 0.3716 (λ² = 2.103)**, where the smallest eigenvalue drops from +1.06×10⁻³ at L = 0.370 to −9.5×10⁻³ at L = 0.375 (the same for N = 16 and N = 32). At L = 0.5 and 0.7 it has two negative eigenvalues (smallest −0.32 and −0.73). With the primes included the form stays positive. I had expected the onset to approach λ² = 2 as N grows; the data show it does not.")
+sub("## 3. Interpretation",
+"""**Signature without the pole terms** (the analogue of the intersection form in Weil's function-field proof, where the Hodge index theorem gives exactly one positive direction). Removing the rank-two pole term 2P₊P₋ from the form, I counted negative eigenvalues (N = 24):
+
+| L | 0.25 | 0.34 | 0.5 | 0.7 | 1.0 |
+|---|---|---|---|---|---|
+| full form | 1 | 1 | 1 | 1 | 1 |
+| archimedean only | 1 | 1 | 2 | 3 | 4 |
+
+So with the primes the signature stays at one negative direction, and each prime that enters the support (2, then 3, then 5 and 7) adds one more negative direction to the archimedean-only form (the last count, 4 at L = 1.0, may miss the prime 7, whose overlap with the support is tiny). This follows from the form being positive, so it is not independent evidence. Its use is as a concrete target for a proof: a mechanism that forces each prime to restore exactly one direction.
+
+## 3. Interpretation""")
+sub("- On [1/λ, λ] with λ² < 2 the archimedean term is the whole form; once λ² > 2 the archimedean term alone fails to be positive and the prime 2 is needed. This is the quantitative content of \"Weil positivity needs the primes\".",
+    "- On [1/λ, λ] with λ² < 2 the archimedean term is the whole form; positivity of the archimedean term alone then persists a little past λ² = 2 and fails at λ² ≈ 2.10, where the prime 2 is needed. This is the quantitative content of \"Weil positivity needs the primes\".")
+sub("`weil_sweepA.json`, `weil_transition.json`,","`weil_sweepA.json`, `weil_transition.json`, `weil_Lc.json`, `weil_onset32.json`, `weil_onset2.json`,")
+open(p,'w').write(s); print("ok")
+EOF
+cp /home/squire/weil_Lc.json /home/squire/weil_onset32.json /home/squire/weil_onset2.json /mnt/user-data/outputs/ && grep -c "0.3716" README_weil_archimedean.md
+
+Response:
+
+JSON ONE:
+
+{"L_c": 0.37161865234374997, "lambda2_c": 2.102731691071874, "lo": 0.37161621093749997, "hi": 0.37162109374999996}
+
+JSON TWO:
+
+[[32, 0.375, -0.009590283148880923, 0.0004929862022214576, 1], [32, 0.38, -0.02357883683149001, 0.0004074275843517285, 1], [32, 0.39, -0.05109898942624411, 0.00027472841090228465, 1], [16, 0.375, -0.009545734440991755, 0.000494471029332559, 1], [16, 0.38, -0.023534203463639974, 0.00040900769102447426, 1]]
+
+JSON THREE:
+
+{"32": [[0.35, 0.0012312436478205992, 0.0011938437513846086], [0.355, 0.001135322168195, 0.0010104372402314195], [0.36, 0.0010834754494186006, 0.0008500751111687145], [0.365, 0.001062162775149881, 0.0007118912335228957], [0.37, 0.0010578059346258318, 0.0005936620296683198]]}

@@ -1,0 +1,18 @@
+cd /home/squire && WEIL_DPS=100 timeout 200 python3 - <<'EOF' 2>&1 | grep -v Warning
+import mpmath as mp, json, math
+import weil_form as WF
+mp.mp.dps = 100
+def minarch(L, N=16):
+    W = WF.Weil(L, N); W.matrix(primes=False); return float(min(mp.eigsy(mp.matrix(W.M_arch), eigvals_only=True)))
+lo, hi = 0.370, 0.375; flo, fhi = minarch(lo), minarch(hi); print(f"bracket: min eig({lo}) = {flo:.3e}, min eig({hi}) = {fhi:.3e}")
+for _ in range(10):
+    mid = 0.5 * (lo + hi); fm = minarch(mid)
+    if fm > 0: lo, flo = mid, fm
+    else: hi, fhi = mid, fm
+print(f"archimedean-only form first has a negative eigenvalue at L_c = {0.5*(lo+hi):.5f}   (lambda_c^2 = e^(2 L_c) = {math.exp(2*0.5*(lo+hi)):.4f};  threshold of prime 2: L = ln(2)/2 = {math.log(2)/2:.5f})")
+json.dump(dict(L_c=0.5*(lo+hi), lambda2_c=math.exp(2*0.5*(lo+hi)), lo=lo, hi=hi), open('weil_Lc.json','w'))
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"bracket: min eig(0.37) = 1.058e-03, min eig(0.375) = -9.546e-03\narchimedean-only form first has a negative eigenvalue at L_c = 0.37162   (lambda_c^2 = e^(2 L_c) = 2.1027;  threshold of prime 2: L = ln(2)/2 = 0.34657)\n","stderr":""}

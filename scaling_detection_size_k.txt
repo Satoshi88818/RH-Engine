@@ -1,0 +1,37 @@
+cd /home/squire && cat > ff4.py << 'EOF'
+import numpy as np, math
+def toeplitz_from_z(zs,K):
+    ks=np.arange(0,K+1); P=np.array([np.sum(zs**k) for k in ks]).real
+    idx=np.abs(np.subtract.outer(np.arange(K+1),np.arange(K+1))); return P[idx]
+def fake_z(delta,theta=1.0):
+    rho=math.exp(delta); return np.array([rho*np.exp(1j*theta),rho*np.exp(-1j*theta),np.exp(1j*theta)/rho,np.exp(-1j*theta)/rho])
+def kmin(zs,Kmax=4000,tol=1e-9):
+    lo=1
+    # exponential then binary search on K (indefiniteness is monotone in K since leading principal submatrices nest)
+    K=2
+    while K<=Kmax:
+        T=toeplitz_from_z(zs,K); lam=np.linalg.eigvalsh(T).min()
+        if lam<-tol*np.abs(T).max(): break
+        K*=2
+    else: return None
+    lo,hi=K//2,K
+    while hi-lo>1:
+        mid=(lo+hi)//2; T=toeplitz_from_z(zs,mid)
+        if np.linalg.eigvalsh(T).min()<-tol*np.abs(T).max(): hi=mid
+        else: lo=mid
+    return hi
+if __name__=="__main__":
+    print("E3: smallest K at which T_K is indefinite, for a quadruple of zeros z={rho e^{+-i th}, e^{+-i th}/rho}, theta=1, offset delta=ln(rho):")
+    print("   (for a curve over F_q the offset in s-units is d = delta/ln q)")
+    rows=[]
+    for delta in [0.5,0.2,0.1,0.05,0.02,0.01,0.005]:
+        K=kmin(fake_z(delta)); rows.append((delta,K)); print(f"   delta={delta:6.3f}: K_min={K}   K_min*delta={K*delta:.2f}")
+    # also a Weil-type control: all zeros on the circle (delta=0) never indefinite
+    for K in [20,100,400]:
+        T=toeplitz_from_z(np.array([np.exp(1j),np.exp(-1j),np.exp(2j),np.exp(-2j)]),K); print(f"   control (4 zeros on the circle) K={K}: lambda_min/||T|| = {np.linalg.eigvalsh(T).min()/np.abs(T).max():.2e}")
+EOF
+python3 ff4.py
+
+Response:
+
+{"returncode":0,"stdout":"E3: smallest K at which T_K is indefinite, for a quadruple of zeros z={rho e^{+-i th}, e^{+-i th}/rho}, theta=1, offset delta=ln(rho):\n   (for a curve over F_q the offset in s-units is d = delta/ln q)\n   delta= 0.500: K_min=2   K_min*delta=1.00\n   delta= 0.200: K_min=2   K_min*delta=0.40\n   delta= 0.100: K_min=2   K_min*delta=0.20\n   delta= 0.050: K_min=2   K_min*delta=0.10\n   delta= 0.020: K_min=2   K_min*delta=0.04\n   delta= 0.010: K_min=2   K_min*delta=0.02\n   delta= 0.005: K_min=2   K_min*delta=0.01\n   control (4 zeros on the circle) K=20: lambda_min/||T|| = -1.53e-15\n   control (4 zeros on the circle) K=100: lambda_min/||T|| = -1.89e-14\n   control (4 zeros on the circle) K=400: lambda_min/||T|| = -2.12e-13\n","stderr":""}

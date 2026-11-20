@@ -1,0 +1,35 @@
+cd /home/squire && cat > ff2.py << 'EOF'
+import numpy as np, math
+from mpmath import mp, mpf, matrix, eigsy, sqrt as msqrt, nstr
+from ff1 import power_sums, counts, closed_points
+mp.dps=60
+def build(L,q,K):
+    g2=len(L)-1; s=power_sums(L,q,K+1)
+    P=[mpf(g2)]+[mpf(s[k])/msqrt(mpf(q))**k for k in range(1,K+2)]
+    T=matrix(K+1,K+1)
+    for j in range(K+1):
+        for l in range(K+1): T[j,l]=P[abs(j-l)]
+    return T,s
+def exactT(L,q,K):
+    s=power_sums(L,q,K+1); n=len(L)-1; s[0]=n
+    return [[q**min(j,l)*s[abs(j-l)] for l in range(K+1)] for j in range(K+1)]
+def nullvec_ok(Tp,L,shift):
+    n=len(L)-1; u=[0]*len(Tp)
+    for m in range(n+1): u[shift+n-m]=L[m]            # u_{shift+n-m} = l_m
+    return all(sum(Tp[i][j]*u[j] for j in range(len(u)))==0 for i in range(len(Tp)))
+curves={"elliptic y^2=x^3+x+1 over F_5 (t=-3)":(5,[1,3,5]),
+        "elliptic y^2=x^3+x+1 over F_7 (t=3)":(7,[1,-3,7]),
+        "genus 2 y^2=x^5+x+1 over F_5":(5,[1,0,10,0,25]),
+        "genus 2 y^2=x^5+x+1 over F_7":(7,[1,1,7,7,49])}
+if __name__=="__main__":
+    for name,(q,L) in curves.items():
+        K=12; T,s=build(L,q,K); ev=eigsy(T,eigvals_only=True); ev=sorted(ev,reverse=True)
+        pos=[nstr(x,8) for x in ev if x>mpf(10)**-40]; rest=max(abs(x) for x in ev if abs(x)<=mpf(10)**-40) if any(abs(x)<=mpf(10)**-40 for x in ev) else 0
+        Tp=exactT(L,q,K); ok=all(nullvec_ok(Tp,L,sh) for sh in range(K+1-(len(L)-1)))
+        print(f"{name}: Toeplitz Weil matrix K={K}: positive eigenvalues {pos}; all others |.|<= {nstr(rest,3)}; exact integer null vectors (shifted reversed L) annihilate T': {ok} ({K+1-(len(L)-1)} of them)")
+EOF
+python3 ff2.py
+
+Response:
+
+{"returncode":0,"stdout":"elliptic y^2=x^3+x+1 over F_5 (t=-3): Toeplitz Weil matrix K=12: positive eigenvalues ['14.336256', '11.663744']; all others |.|<= 1.82e-60; exact integer null vectors (shifted reversed L) annihilate T': True (11 of them)\nelliptic y^2=x^3+x+1 over F_7 (t=3): Toeplitz Weil matrix K=12: positive eigenvalues ['13.021428', '12.978572']; all others |.|<= 2.3e-60; exact integer null vectors (shifted reversed L) annihilate T': True (11 of them)\ngenus 2 y^2=x^5+x+1 over F_5: Toeplitz Weil matrix K=12: positive eigenvalues ['28.0', '24.0']; all others |.|<= 5.08e-60; exact integer null vectors (shifted reversed L) annihilate T': True (9 of them)\ngenus 2 y^2=x^5+x+1 over F_7: Toeplitz Weil matrix K=12: positive eigenvalues ['14.661908', '14.276874', '11.576036', '11.485182']; all others |.|<= 3.32e-60; exact integer null vectors (shifted reversed L) annihilate T': True (9 of them)\n","stderr":""}
