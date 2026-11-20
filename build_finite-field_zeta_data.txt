@@ -1,0 +1,78 @@
+cd /home/squire && cat > ff1.py << 'EOF'
+import itertools, math
+from fractions import Fraction
+def legendre(a,p):
+    a%=p
+    if a==0: return 0
+    return 1 if pow(a,(p-1)//2,p)==1 else -1
+def elliptic_N1(a,b,p):
+    return 1+sum(1+legendre(x**3+a*x+b,p) for x in range(p))
+def genus2_N1(coefs,p):      # y^2 = f(x), f given as list c0..c5 (deg 5), one point at infinity
+    def f(x): return sum(c*pow(x,i,p) for i,c in enumerate(coefs))%p
+    return 1+sum(1+legendre(f(x),p) for x in range(p))
+# F_{p^2} = F_p[t]/(t^2-n)
+def nonres(p):
+    for n in range(2,p):
+        if legendre(n,p)==-1: return n
+def Fp2_ops(p):
+    n=nonres(p)
+    def mul(u,v): return ((u[0]*v[0]+n*u[1]*v[1])%p,(u[0]*v[1]+u[1]*v[0])%p)
+    def pw(u,e):
+        r=(1,0)
+        while e:
+            if e&1: r=mul(r,u)
+            u=mul(u,u); e>>=1
+        return r
+    return mul,pw
+def is_square_Fp2(u,p,pw):
+    if u==(0,0): return 0
+    return 1 if pw(u,(p*p-1)//2)==(1,0) else -1
+def N2_poly(coefs,p,degree_inf_points=1):
+    mul,pw=Fp2_ops(p); tot=degree_inf_points
+    elems=[(x,y) for x in range(p) for y in range(p)]
+    for x in elems:
+        v=(0,0); xp=(1,0)
+        for c in coefs:
+            v=((v[0]+c*xp[0])%p,(v[1]+c*xp[1])%p); xp=mul(xp,x)
+        s=is_square_Fp2(v,p,pw); tot+=1+s
+    return tot
+def power_sums(L,qq,Kmax):
+    """L = [1,l1,...,l_{2g}] coefficients of prod(1-alpha_i T); returns s_0..s_Kmax (s_0=2g)"""
+    d=len(L)-1; s=[d]+[0]*Kmax
+    for k in range(1,Kmax+1):
+        acc=0
+        for m in range(1,min(k-1,d)+1): acc+=L[m]*s[k-m]
+        s[k]=-(acc+(k*L[k] if k<=d else 0))
+    return s
+def counts(L,q,Kmax):
+    s=power_sums(L,q,Kmax); return [None]+[q**k+1-s[k] for k in range(1,Kmax+1)]
+def mobius(n):
+    r=1; m=n; p=2
+    while p*p<=m:
+        if m%p==0:
+            m//=p
+            if m%p==0: return 0
+            r=-r
+        p+=1
+    if m>1: r=-r
+    return r
+def closed_points(N,D):
+    return [None]+[sum(mobius(d//e)*N[e] for e in range(1,d+1) if d%e==0)//d if sum(mobius(d//e)*N[e] for e in range(1,d+1) if d%e==0)%d==0 else Fraction(sum(mobius(d//e)*N[e] for e in range(1,d+1) if d%e==0),d) for d in range(1,D+1)]
+if __name__=="__main__":
+    print("elliptic curve y^2=x^3+x+1:")
+    for p in [5,7,11]:
+        N1=elliptic_N1(1,1,p); t=p+1-N1; L=[1,-t,p]; N=counts(L,p,6)
+        N2b=N2_poly([1,1,0,1],p)
+        print(f" p={p}: N1={N1}, trace t={t}, N2 from L={N[2]}, N2 brute force over F_p^2={N2b}, match={N[2]==N2b}; closed points a_d (d=1..8): {[int(x) if isinstance(x,int) else x for x in closed_points(counts(L,p,8),8)[1:]]}")
+    print("genus 2: y^2 = x^5+x+1")
+    for p in [5,7]:
+        coefs=[1,1,0,0,0,1]; N1=genus2_N1(coefs,p); N2=N2_poly(coefs,p)
+        c1=N1-p-1; c2=Fraction(N2-p*p-1+c1*c1,2); 
+        L=[1,c1,int(c2),p*c1,p*p]; N=counts(L,p,8)
+        print(f" p={p}: N1={N1}, N2={N2}, L=1+{c1}T+{int(c2)}T^2+{p*c1}T^3+{p*p}T^4 ; N1 check {N[1]==N1}, N2 check {N[2]==N2}; a_d: {[x if isinstance(x,int) else str(x) for x in closed_points(N,8)[1:]]}")
+EOF
+python3 ff1.py
+
+Response:
+
+{"returncode":0,"stdout":"elliptic curve y^2=x^3+x+1:\n p=5: N1=9, trace t=-3, N2 from L=27, N2 brute force over F_p^2=27, match=True; closed points a_d (d=1..8): [9, 9, 33, 162, 612, 2571, 11232, 48600]\n p=7: N1=5, trace t=3, N2 from L=55, N2 brute force over F_p^2=55, match=True; closed points a_d (d=1..8): [5, 25, 125, 605, 3354, 19435, 117420, 720225]\n p=11: N1=14, trace t=-2, N2 from L=140, N2 brute force over F_p^2=140, match=True; closed points a_d (d=1..8): [14, 63, 420, 3605, 32368, 294910, 2782820, 26795860]\ngenus 2: y^2 = x^5+x+1\n p=5: N1=6, N2=46, L=1+0T+10T^2+0T^3+25T^4 ; N1 check True, N2 check True; a_d: [6, 20, 40, 120, 624, 2660, 11160, 48450]\n p=7: N1=9, N2=63, L=1+1T+7T^2+7T^3+49T^4 ; N1 check True, N2 check True; a_d: [9, 27, 112, 609, 3311, 19362, 117942, 720594]\n","stderr":""}
