@@ -1,0 +1,55 @@
+cd /home/squire && cat > weil_char.py <<'EOF'
+"""Weil form for L(s, chi), chi real primitive (conductor q, parity a):  sum over zeros g^_i conj(g^_j)  =
+ M_ij = (ln(q/pi) - gamma) delta_ij - delta_ij ln(1 - e^{-4L}) + int_0^{2L} 2 [delta_ij e^{-2x} - S_ij(x) e^{-2 c x}]/(1 - e^{-2x}) dx - 2 sum_n Lambda(n) chi(n) n^{-1/2} S_ij(ln n),  c = 1/4 + a/2.
+No pole terms (chi non-principal)."""
+import os, sys, json
+import mpmath as mp
+import weil_form as WF
+mp.mp.dps = int(os.environ.get("WEIL_DPS", 50))
+CHI = {"chi_-4": (4, 1, lambda n: [0, 1, 0, -1][n % 4]), "chi_-3": (3, 1, lambda n: [0, 1, -1][n % 3]),
+       "chi_5": (5, 0, lambda n: [0, 1, -1, -1, 1][n % 5]), "chi_8": (8, 0, lambda n: [0, 1, 0, -1, 0, -1, 0, 1][n % 8])}
+class WeilChar(WF.Weil):
+    def __init__(self, name, L, N, nq=None):
+        super().__init__(L, N, nq); self.q, self.a, self.chi = CHI[name]
+    def matrix(self, primes=True, n_arch_nodes=None):
+        N = self.N; L = self.L; M = [[mp.mpf(0)] * N for _ in range(N)]; c = mp.mpf(1) / 4 + mp.mpf(self.a) / 2
+        for i in range(N): M[i][i] += mp.log(mp.mpf(self.q) / mp.pi) - mp.euler - mp.log(1 - mp.exp(-4 * L))
+        xs, ws = self._nodes(n_arch_nodes or 64)
+        for t, w in zip(xs, ws):
+            x = L * (t + 1); wt = w * L; Sx = self.S(x)
+            for i in range(N):
+                for j in range(N):
+                    d = mp.mpf(1) if i == j else mp.mpf(0)
+                    M[i][j] += wt * 2 * (d * mp.exp(-2 * x) - Sx[i][j] * mp.exp(-2 * c * x)) / (1 - mp.exp(-2 * x))
+        self.M_arch = [row[:] for row in M]
+        if primes:
+            lam2 = mp.exp(2 * L)
+            for p in [q for q in range(2, int(lam2) + 1) if all(q % r for r in range(2, int(q**0.5) + 1))]:
+                k = 1
+                while p**k <= lam2:
+                    n = p**k; ch = self.chi(n)
+                    if ch != 0:
+                        Sx = self.S(mp.log(n)); cc = 2 * mp.log(p) * ch / mp.sqrt(n)
+                        for i in range(N):
+                            for j in range(N): M[i][j] -= cc * Sx[i][j]
+                    k += 1
+        return M
+if __name__ == "__main__":
+    import numpy as np
+    from scipy.special import spherical_jn
+    name = sys.argv[1]; L = float(sys.argv[2]); N = int(sys.argv[3])
+    W = WeilChar(name, L, N); M = W.matrix(); Md = np.array([[float(M[i][j]) for j in range(N)] for i in range(N)])
+    zs = np.array(json.load(open('dz_results.json'))[name]['zeros']); T = 700.0; Z = np.zeros((N, N))
+    for i in range(N):
+        for j in range(N):
+            if (i - j) % 2: continue
+            gi = np.sqrt(2 * (2 * i + 1) * L) * spherical_jn(i, zs * L); gj = np.sqrt(2 * (2 * j + 1) * L) * spherical_jn(j, zs * L)
+            Z[i, j] = 2 * np.real((-1j)**(i - j)) * np.sum(gi * gj)
+    q = W.q; tail = np.array([[np.sqrt((2 * i + 1) * (2 * j + 1)) * (2 / L) * (np.log(q * T / (2 * np.pi)) + 1) / (2 * np.pi * T) if (i - j) % 2 == 0 else 0.0 for j in range(N)] for i in range(N)])
+    print(f"{name} L={L} N={N}: max|M_arith - M_zeros| raw = {np.abs(Md-Z).max():.3e}, after tail = {np.abs(Md-Z-tail).max():.3e}, max|M| = {np.abs(Md).max():.3f}; eigenvalues (arith) {np.linalg.eigvalsh(Md)[:4]}")
+EOF
+ls dz_results.json >/dev/null 2>&1 || cp /mnt/user-data/outputs/dz_results.json . ; python3 weil_char.py chi_-4 0.9 6 2>&1 | tail -2; python3 weil_char.py chi_5 0.9 6 2>&1 | tail -2
+
+Response:
+
+{"returncode":0,"stdout":"chi_-4 L=0.9 N=6: max|M_arith - M_zeros| raw = 3.947e-02, after tail = 1.346e-05, max|M| = 2.303; eigenvalues (arith) [3.25824962e-04 1.72583396e-02 6.52553928e-01 1.78744617e+00]\nchi_5 L=0.9 N=6: max|M_arith - M_zeros| raw = 4.065e-02, after tail = 4.778e-05, max|M| = 2.440; eigenvalues (arith) [4.80346146e-04 1.18197905e-02 4.03447137e-01 1.96416346e+00]\n","stderr":""}

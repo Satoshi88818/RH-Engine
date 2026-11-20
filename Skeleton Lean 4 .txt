@@ -1,0 +1,79 @@
+**A realistic Lean 4 certificate for this computation takes the following form.**
+
+The numerical script verifies that the arithmetic Weil matrix \(M\) (for a real primitive character \(\chi\), support parameter \(L\), and basis size \(N\)) is close to the spectral side coming from the zeros and has positive eigenvalues. A formal certificate turns the positivity statement into a kernel-checked theorem.
+
+### What can be certified today
+
+For the concrete parameters \(L = 0.9\), \(N = 6\) and the two characters shown, the following is feasible with current Mathlib + a modest amount of certified arithmetic:
+
+1. **Hard-code a rational (or dyadic) approximation \(M_0\) of the arithmetic matrix** together with a rigorous a-priori error bound \(\varepsilon\) such that
+   \[
+   \|M - M_0\|_\infty \le \varepsilon.
+   \]
+   (The script already shows that after the elementary tail the discrepancy is \(\sim 10^{-5}\); a careful interval evaluation of the integral + prime-power sum yields a concrete \(\varepsilon\).)
+
+2. **Prove that \(M_0\) is positive definite** (e.g. all leading principal minors positive, or a certified Cholesky factorisation with residual control, or Gershgorin + strict diagonal dominance after a congruence, or the characteristic polynomial having no non-positive real roots via Sturm or interval methods).
+
+3. **Transfer positivity** to the true matrix \(M\) by a perturbation argument:
+   \[
+   \lambda_{\min}(M) \ge \lambda_{\min}(M_0) - C_N\varepsilon > 0,
+   \]
+   where \(C_N\) is an explicit constant coming from the matrix norm (available in Mathlib).
+
+4. **Link to the Weil criterion** for the completed \(L\)-function of \(\chi\): positivity of the quadratic form on the \(N\)-dimensional space of test functions spanned by the chosen basis implies that those particular test functions satisfy the Weil positivity condition. (The full RH for \(L(s,\chi)\) requires positivity for *all* admissible test functions; this is a finite-dimensional certificate that can later be fed into a larger inductive or density argument.)
+
+### Skeleton Lean 4 certificate
+
+```lean
+import Mathlib.Analysis.Matrix.PosDef
+import Mathlib.LinearAlgebra.Matrix.Spectrum
+import Mathlib.Data.Real.Basic
+-- import Interval  -- if using girving/interval or FloatLib for the error bound
+
+namespace WeilCharCertificate
+
+/-- Approximate arithmetic matrix for χ₋₄, L = 0.9, N = 6
+    (entries obtained from high-precision evaluation + interval enclosure). -/
+def M0_chi_m4 : Matrix (Fin 6) (Fin 6) ℚ :=
+  !![ ... ; ... ]  -- fill with the rational approximation of the printed matrix
+
+/-- Rigorous bound: ‖M_arith - M0‖_∞ ≤ ε -/
+def ε_chi_m4 : ℚ := 2 / 10^4   -- safe overestimate of the 1.35e-5 residual
+
+theorem M0_chi_m4_posDef : M0_chi_m4.PosDef := by
+  -- one of:
+  -- * leadingPrincipalMinors_pos (compute the 6 minors exactly over ℚ)
+  -- * or a verified Cholesky / LDLᵀ with residual
+  -- * or characteristicPolynomial and Sturm sequence showing no ≤0 roots
+  sorry  -- replace by concrete proof
+
+theorem true_matrix_posDef_chi_m4
+    (M : Matrix (Fin 6) (Fin 6) ℝ)
+    (happrox : ∀ i j, |M i j - (M0_chi_m4 i j : ℝ)| ≤ ε_chi_m4) :
+    M.PosDef := by
+  -- standard perturbation: λ_min(M) ≥ λ_min(M0) - √n · ‖E‖₂ (or ∞-norm version)
+  -- Mathlib already has the necessary eigenvalue perturbation lemmas
+  sorry
+
+/-- The corresponding statement for the Weil quadratic form on the
+    spherical-Bessel basis of dimension 6 with support parameter L = 0.9. -/
+theorem weil_positivity_certificate_chi_m4
+    (f : Fin 6 → ℝ) (hf : f ≠ 0) :
+    -- Q_χ(f) ≥ c ‖f‖²  for an explicit positive c
+    True := by  -- replace by the actual quadratic-form statement
+  sorry
+
+-- Analogous declarations for χ₅
+
+end WeilCharCertificate
+```
+
+### Practical next steps to make the certificate complete
+
+- **Extract exact matrix entries.** Re-run the Python script (or a pure-mpmath version) writing the matrix to a JSON/CSV of rationals or high-precision floats; convert to Lean `ℚ` or `Float` with explicit error.
+- **Certified assembly.** Replace the numerical quadrature and the sum over primes by interval arithmetic (or exact rational arithmetic for the finite prime-power sum up to \(e^{2L}\)). The archimedean integral can be bounded by a rigorous Gauss–Legendre quadrature with remainder or by a power-series expansion of the integrand.
+- **Positivity engine.** For \(N=6\) the characteristic polynomial is degree 6; Sturm’s theorem or a Descartes-rule + interval isolation of real roots is entirely feasible and already has partial support in Mathlib / community libraries. Alternatively, compute the Cholesky factor over intervals and prove the residual is smaller than the smallest diagonal entry.
+- **Integration with existing formalisations.** The Loeffler–Stoll formalisation of Dirichlet \(L\)-functions in Mathlib already supplies the analytic objects. The various “Weil positivity ⇒ RH” frameworks that have appeared (explicit-formula reductions, compact-support criteria, etc.) can take a finite-dimensional positivity certificate as a building block.
+
+
+
