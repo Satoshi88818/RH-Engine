@@ -1,0 +1,69 @@
+mkdir -p /home/squire && cd /home/squire && cat > fflib.py << 'EOF'
+import numpy as np, math
+from fractions import Fraction
+def legendre(a,p):
+    a%=p
+    if a==0: return 0
+    return 1 if pow(a,(p-1)//2,p)==1 else -1
+def elliptic_N1(a,b,p): return 1+sum(1+legendre(x**3+a*x+b,p) for x in range(p))
+def nonres(p):
+    for n in range(2,p):
+        if legendre(n,p)==-1: return n
+def N2_poly(coefs,p):
+    n=nonres(p)
+    def mul(u,v): return ((u[0]*v[0]+n*u[1]*v[1])%p,(u[0]*v[1]+u[1]*v[0])%p)
+    def pw(u,e):
+        r=(1,0)
+        while e:
+            if e&1: r=mul(r,u)
+            u=mul(u,u); e>>=1
+        return r
+    tot=1
+    for x in [(a,b) for a in range(p) for b in range(p)]:
+        v=(0,0); xp=(1,0)
+        for c in coefs:
+            v=((v[0]+c*xp[0])%p,(v[1]+c*xp[1])%p); xp=mul(xp,x)
+        tot+=1+(0 if v==(0,0) else (1 if pw(v,(p*p-1)//2)==(1,0) else -1))
+    return tot
+def power_sums(L,Kmax):
+    d=len(L)-1; s=[d]+[0]*Kmax
+    for k in range(1,Kmax+1):
+        acc=sum(L[m]*s[k-m] for m in range(1,min(k-1,d)+1)); s[k]=-(acc+(k*L[k] if k<=d else 0))
+    return s
+def counts(L,q,Kmax): s=power_sums(L,Kmax); return [None]+[q**k+1-s[k] for k in range(1,Kmax+1)]
+def mobius(n):
+    r=1; m=n; p=2
+    while p*p<=m:
+        if m%p==0:
+            m//=p
+            if m%p==0: return 0
+            r=-r
+        p+=1
+    return -r if m>1 else r
+def closed_points(N,D):
+    out=[None]
+    for d in range(1,D+1):
+        t=sum(mobius(d//e)*N[e] for e in range(1,d+1) if d%e==0); out.append(t//d if t%d==0 else Fraction(t,d))
+    return out
+def T_from_z(zs,K):
+    P=np.array([np.sum(zs**k) for k in range(K+1)]).real
+    return P[np.abs(np.subtract.outer(np.arange(K+1),np.arange(K+1)))]
+def z_from_L(L,q):
+    r=np.roots(L[::-1]); return (1/r)/math.sqrt(q)          # alpha_i = 1/root(T); z = alpha/sqrt(q)
+def T_exact(L,q,K):
+    s=power_sums(L,K+1); s[0]=len(L)-1
+    return [[q**min(j,l)*s[abs(j-l)] for l in range(K+1)] for j in range(K+1)]
+EOF
+python3 - << 'EOF'
+import sys; sys.path.insert(0,'/home/squire')
+from fflib import *
+print("verification (point counts over F_p and F_p^2 vs L-polynomial):")
+for p in [5,7,11]:
+    N1=elliptic_N1(1,1,p); t=p+1-N1; L=[1,-t,p]; N=counts(L,p,6)
+    print(f" E: y^2=x^3+x+1 over F_{p}: N1={N1}, t={t}, N2(L)={N[2]}, N2(brute force F_{p}^2)={N2_poly([1,1,0,1],p)}; closed points a_d={[int(x) for x in closed_points(counts(L,p,8),8)[1:]]}")
+print(" genus 2 y^2=x^5+x+1: F_5 L=1+10T^2+25T^4 (=(1+5T^2)^2), F_7 L=1+T+7T^2+7T^3+49T^4 (closed points nonnegative integers up to degree 8: checked earlier)")
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"verification (point counts over F_p and F_p^2 vs L-polynomial):\n E: y^2=x^3+x+1 over F_5: N1=9, t=-3, N2(L)=27, N2(brute force F_5^2)=27; closed points a_d=[9, 9, 33, 162, 612, 2571, 11232, 48600]\n E: y^2=x^3+x+1 over F_7: N1=5, t=3, N2(L)=55, N2(brute force F_7^2)=55; closed points a_d=[5, 25, 125, 605, 3354, 19435, 117420, 720225]\n E: y^2=x^3+x+1 over F_11: N1=14, t=-2, N2(L)=140, N2(brute force F_11^2)=140; closed points a_d=[14, 63, 420, 3605, 32368, 294910, 2782820, 26795860]\n genus 2 y^2=x^5+x+1: F_5 L=1+10T^2+25T^4 (=(1+5T^2)^2), F_7 L=1+T+7T^2+7T^3+49T^4 (closed points nonnegative integers up to degree 8: checked earlier)\n","stderr":""}

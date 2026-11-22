@@ -1,0 +1,24 @@
+cd /home/squire && WEIL_DPS=100 timeout 285 python3 - <<'EOF' 2>&1 | grep -v Warning
+import json, math
+import mpmath as mp
+import weil_char as WC
+mp.mp.dps = 100
+N = 16
+def minarch(name, L):
+    W = WC.WeilChar(name, L, N); W.matrix(primes=False); return float(min(mp.eigsy(mp.matrix(W.M_arch), eigvals_only=True)))
+res = {}
+for name, lo, hi, p in (("chi_5", 0.40, 0.50, 2), ("chi_-3", 0.40, 0.50, 2), ("chi_-4", 0.60, 0.70, 3), ("chi_8", 0.60, 0.70, 3)):
+    for _ in range(9):
+        mid = 0.5 * (lo + hi)
+        if minarch(name, mid) > 0: lo = mid
+        else: hi = mid
+    Lc = 0.5 * (lo + hi); res[name] = dict(L_c=Lc, lambda2_c=math.exp(2 * Lc), first_prime=p, threshold_L=math.log(p) / 2)
+    print(f"{name}: archimedean-only form first indefinite at L_c = {Lc:.4f}  (lambda^2 = {math.exp(2*Lc):.3f}); first prime with chi(p) != 0 is {p}: threshold lambda^2 = {p}, L = {math.log(p)/2:.4f}; offset L_c - threshold = {Lc - math.log(p)/2:+.4f}", flush=True)
+res["zeta"] = dict(L_c=0.37162, lambda2_c=2.1027, first_prime=2, threshold_L=math.log(2) / 2)
+print(f"zeta:  L_c = 0.3716 (lambda^2 = 2.103); threshold {math.log(2)/2:.4f}; offset {0.37162-math.log(2)/2:+.4f}")
+json.dump(res, open('weil_char_Lc.json', 'w'))
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"chi_5: archimedean-only form first indefinite at L_c = 0.4560  (lambda^2 = 2.489); first prime with chi(p) != 0 is 2: threshold lambda^2 = 2, L = 0.3466; offset L_c - threshold = +0.1094\nchi_-3: archimedean-only form first indefinite at L_c = 0.4140  (lambda^2 = 2.289); first prime with chi(p) != 0 is 2: threshold lambda^2 = 2, L = 0.3466; offset L_c - threshold = +0.0674\nchi_-4: archimedean-only form first indefinite at L_c = 0.6046  (lambda^2 = 3.351); first prime with chi(p) != 0 is 3: threshold lambda^2 = 3, L = 0.5493; offset L_c - threshold = +0.0553\nchi_8: archimedean-only form first indefinite at L_c = 0.6667  (lambda^2 = 3.794); first prime with chi(p) != 0 is 3: threshold lambda^2 = 3, L = 0.5493; offset L_c - threshold = +0.1174\nzeta:  L_c = 0.3716 (lambda^2 = 2.103); threshold 0.3466; offset +0.0250\n","stderr":""}

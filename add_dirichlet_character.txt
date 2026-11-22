@@ -1,0 +1,30 @@
+cd /mnt/user-data/outputs && python3 - <<'EOF'
+p='README_weil_archimedean.md'; s=open(p).read()
+new = """## 3b. Dirichlet characters (GRH): the same mechanism, with the primes weighted by χ(p)
+
+For a real primitive character χ of conductor q and parity a, the same derivation gives (no pole terms, since χ is non-principal)
+
+> Σ_γ |ĝ(γ)|² = (ln(q/π) − γ_E)‖g‖² + ∫₀^∞ 2[A(0)e^{−2x} − A(x)e^{−2cx}]/(1 − e^{−2x})dx − 2 Σ_n Λ(n)χ(n)n^{−1/2}A(ln n), c = ¼ + a/2.
+
+**Validation:** against the zeros of L(s, χ) that I computed (about 570 zeros, t ≤ 700), the arithmetic-side matrix agrees after the tail correction to 1.3×10⁻⁵ (χ₋₄) and 4.8×10⁻⁵ (χ₅) at L = 0.9, N = 6, where the raw difference is 4×10⁻². (The limit is the short zero list.)
+
+**Prediction and result.** The primes enter the form only where χ(p) ≠ 0. So for χ₋₄ and χ₈ (χ(2) = 0) the full and the archimedean-only forms should be identical until λ² reaches 3. That is what happens: they coincide to every digit at L = 0.30, 0.40 and 0.50 and separate only at L = 0.60. The archimedean-only form first has a negative eigenvalue (N = 16, bisection):
+
+| form | first prime with χ(p) ≠ 0 | threshold L = ½ ln p | L_c where the archimedean-only form first has a negative eigenvalue | λ_c² | offset L_c − threshold |
+|---|---|---|---|---|---|
+| ζ | 2 | 0.3466 | 0.3716 | 2.103 | +0.025 |
+| χ₋₃ (q = 3) | 2 | 0.3466 | 0.4140 | 2.289 | +0.067 |
+| χ₅ (q = 5) | 2 | 0.3466 | 0.4560 | 2.489 | +0.109 |
+| χ₋₄ (q = 4) | 3 | 0.5493 | 0.6046 | 3.351 | +0.055 |
+| χ₈ (q = 8) | 3 | 0.5493 | 0.6667 | 3.794 | +0.117 |
+
+In every case the full form stays positive (smallest eigenvalues at L = 0.9: 4.6×10⁻⁵ (χ₅), 1.2×10⁻⁷ (χ₋₃), 2.7×10⁻⁵ (χ₋₄), 5.4×10⁻³ (χ₈)), and the archimedean-only form fails shortly after the first prime that enters. The size of the offset varies between 0.025 and 0.12; I do not know what determines it (it may depend on q and the parity). So the pattern "each prime that enters is needed to restore positivity" holds for these five L-functions, and the arithmetic content (which primes matter) comes out as predicted from χ(p).
+
+"""
+a = "## 3. Interpretation"
+assert a in s; s = s.replace(a, new + a, 1)
+s = s.replace("`weil_Lc.json`, `weil_onset32.json`, `weil_onset2.json`,", "`weil_Lc.json`, `weil_onset32.json`, `weil_onset2.json`, `weil_char_sweep.json`, `weil_char_Lc.json`, `weil_char.py`,")
+open(p,'w').write(s); print("ok")
+EOF
+cp /home/squire/weil_char.py /home/squire/weil_char_sweep.json /home/squire/weil_char_Lc.json /mnt/user-data/outputs/ && grep -c "3b." README_weil_archimedean.md
+
