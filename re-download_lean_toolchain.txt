@@ -1,0 +1,26 @@
+cd /home/squire && (setsid nohup bash -c 'curl -sL -o lean415.tar.zst https://github.com/leanprover/lean4/releases/download/v4.15.0/lean-4.15.0-linux.tar.zst; pip install zstandard --break-system-packages -q; python3 -c "
+import zstandard, tarfile
+with open(\"lean415.tar.zst\",\"rb\") as fh:
+    r=zstandard.ZstdDecompressor().stream_reader(fh)
+    tarfile.open(fileobj=r,mode=\"r|\").extractall(\"lean415\")
+print(\"extracted\")"' > lean_dl2.log 2>&1 < /dev/null &)
+python3 - << 'EOF'
+import sys; sys.path.insert(0,'/home/squire')
+import numpy as np, math
+from fflib import *
+q=5
+cands=[]
+for a in range(-24,25):
+    for b in range(-70,71):
+        L=[1,a,b,q*a,q*q]; z=z_from_L(L,q); d=np.max(np.abs(np.log(np.abs(z))))/math.log(q)
+        if d>0.02: cands.append((d,a,b,L))
+cands.sort(); print("integer fake L (q=5) with offset d>0.02: %d; smallest offsets:"%len(cands),[(round(c[0],3),c[1],c[2]) for c in cands[:10]])
+for d,a,b,L in cands[:3]+cands[len(cands)//2:len(cands)//2+1]:
+    N=counts(L,q,10); cp=closed_points(N,10)
+    bad=[(k,str(cp[k])) for k in range(1,11) if not(isinstance(cp[k],int) and cp[k]>=0)]
+    print(f" a={a:3d} b={b:3d} d={d:.3f}: N_1..N_4={N[1:5]}; invalid closed-point counts (degree, value): {bad[:4]}")
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"integer fake L (q=5) with offset d>0.02: 6780; smallest offsets: [(np.float64(0.101), -1, -6), (np.float64(0.101), 1, -6), (np.float64(0.109), -3, 3), (np.float64(0.109), 3, 3), (np.float64(0.12), -1, 11), (np.float64(0.12), 1, 11), (np.float64(0.124), -5, 12), (np.float64(0.124), 5, 12), (np.float64(0.127), -3, 13), (np.float64(0.127), 3, 13)]\n a= -1 b= -6 d=0.101: N_1..N_4=[5, 13, 92, 609]; invalid closed-point counts (degree, value): []\n a=  1 b= -6 d=0.101: N_1..N_4=[7, 13, 160, 609]; invalid closed-point counts (degree, value): []\n a= -3 b=  3 d=0.109: N_1..N_4=[3, 23, 81, 555]; invalid closed-point counts (degree, value): []\n a= -9 b=-46 d=1.086: N_1..N_4=[-3, -147, -1980, -26591]; invalid closed-point counts (degree, value): [(1, '-3'), (2, '-72'), (3, '-659'), (4, '-6611')]\n","stderr":""}
