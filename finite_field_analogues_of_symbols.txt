@@ -1,0 +1,57 @@
+cd /home/squire && cat > ff6.py << 'EOF'
+import numpy as np, math
+from scipy.optimize import nnls
+from fflib import *
+from ff5b import zeros_with_background
+q=5; L=[1,3,5]; zs=z_from_L(L,q); th0=abs(np.angle(zs[0]))
+print("real curve E: y^2=x^3+x+1 over F_5: zeros z=e^{+-i theta}, theta=%.6f (=arccos(t/(2 sqrt q)))"%th0)
+th=np.linspace(0,2*np.pi,8001)
+def symbols(zs,K):
+    P=np.array([np.sum(zs**k) for k in range(K+1)]).real; ks=np.arange(-K,K+1); Pk=P[np.abs(ks)]
+    E=np.exp(1j*np.outer(th,ks)); sharp=(E@Pk).real; fej=(E@(Pk*(1-np.abs(ks)/(K+1)))).real
+    return sharp,fej
+print("\nE4  symbol sum_{|k|<=K} w_k P_|k| e^{ik th} (analog of Ansatz 1): sharp partial sum vs Fejer-tapered (w_k=1-|k|/(K+1)):")
+for name,z in [("real curve (g=1)",zs),("real-like background g'=8, no off-circle zero",None),("fake: g'=8 + off-circle quadruple delta=0.1",zeros_with_background(8,0.1)[0])]:
+    if z is None: z=zeros_with_background(8,0.0)[0]
+    out=[]
+    for K in [8,16,32,64]:
+        sh,fj=symbols(z,K); out.append(f"K={K}: sharp min {sh.min():+.2f}, Fejer min {fj.min():+.3e}")
+    print(f"   {name}: "+" | ".join(out))
+print("\nE5  NNLS (analog of Ansatz 2): fit T_K = sum_x w_x C(x), C(x)_jl = cos((j-l)x), x on a grid in [0,pi]")
+def nnls_fit(zs,K,ngrid=6000):
+    T=T_from_z(zs,K); xs=np.linspace(0,np.pi,ngrid); iu=np.triu_indices(K+1)
+    X=np.array([np.cos((iu[0]-iu[1])*x) for x in xs]).T
+    wts=np.where(iu[0]==iu[1],1.0,np.sqrt(2.0)); sol,res=nnls(X*wts[:,None],T[iu]*wts,maxiter=100000)
+    fit=X@sol; Tf=np.zeros_like(T); Tf[iu]=fit; Tf=Tf+Tf.T-np.diag(np.diag(Tf)); return xs,sol,np.linalg.norm(T-Tf)/np.linalg.norm(T),T-Tf
+xs,sol,rel,_=nnls_fit(zs,12)
+sup=np.where(sol>1e-6)[0]; print("   real curve K=12: relative residual %.2e; atoms: %s (true theta %.4f, expected weight 2)"%(rel,[(round(xs[i],4),round(sol[i],4)) for i in sup],th0))
+zf,thf=zeros_with_background(4,0.1); xs,sol,rel,R=nnls_fit(zf,24)
+print("   fake (g'=4, offset 0.1) K=24: relative residual %.3f; min eigenvalue of T-fit: %.3f (T's own min eigenvalue %.3f)"%(rel,np.linalg.eigvalsh(R).min(),np.linalg.eigvalsh(T_from_z(zf,24)).min()))
+print("\nE6  termwise domination by closed-point degree (analog of Ansatz 3), real curve K=16:")
+K=16; N=counts(L,q,K); a=closed_points(N,K)
+Main=np.zeros((K+1,K+1)); 
+for j in range(K+1):
+    for l in range(K+1):
+        k=abs(j-l); Main[j,l]=2 if k==0 else q**(k/2)+q**(-k/2)
+def J(k):
+    M=np.zeros((K+1,K+1))
+    for j in range(K+1-k): M[j,j+k]=M[j+k,j]=1
+    return M
+Pd={d:sum(d*q**(-d*m/2)*J(d*m) for m in range(1,K//d+1)) for d in range(1,K+1)}
+Tfull=Main-sum(int(a[d])*Pd[d] for d in range(1,K+1))
+print("   check Main - sum_d a_d P_d  equals T_K: max diff %.1e; lambda_min(T_K)=%.2e"%(np.abs(Tfull-T_from_z(zs,K)).max(),np.linalg.eigvalsh(T_from_z(zs,K)).min()))
+lm=[np.linalg.eigvalsh(Main-sum(int(a[d])*Pd[d] for d in range(1,D+1))).min() if D>0 else np.linalg.eigvalsh(Main).min() for D in range(0,K+1)]
+print("   lambda_min(Main - sum_{d<=D} a_d P_d) for D=0..16:",[f"{x:+.2f}" for x in lm])
+rng=np.random.default_rng(1); ok=0; mins=[]
+for _ in range(300):
+    y=rng.random(K)<0.5; B=Main-sum(int(a[d])*Pd[d] for d in range(1,K+1) if y[d-1]); l_=np.linalg.eigvalsh(B).min(); mins.append(l_); ok+= l_>-1e-8
+print("   random subsets of degree classes: PSD in %d of 300; median lambda_min %.2f, min %.2f"%(ok,np.median(mins),np.min(mins)))
+print("\nE7  rigidity: scale all closed-point weights by (1+t):")
+for t in [-1e-3,-1e-6,1e-9,1e-6,1e-3]:
+    B=Main-(1+t)*sum(int(a[d])*Pd[d] for d in range(1,K+1)); print(f"   t={t:+.0e}: lambda_min = {np.linalg.eigvalsh(B).min():+.3e}")
+EOF
+python3 ff6.py
+
+Response:
+
+{"returncode":0,"stdout":"smallest K with lambda_min(T_K)/max|T| < -1e-10; 2g' evenly spread on-circle zeros plus one off-circle quadruple of offset delta (z and 1/z pairs):\ng'   | delta=0.2 | 0.1 | 0.05 | 0.02 | 0.01\n   1 | 4 | 4 | 4 | 4 | 4\n   2 | 6 | 6 | 6 | 6 | 6\n   4 | 10 | 10 | 10 | 10 | 10\n   8 | 12 | 18 | 18 | 18 | 18\n  16 | 14 | 24 | 34 | 34 | 34\n  32 | 16 | 28 | 48 | 66 | 66\ng'=8, delta=0.1: lambda_min(T_K)/max|T| for K=4,8,16,24,40,80: ['6.24e-01', '4.16e-01', '1.25e-02', '-6.94e-01', '-2.63e+00', '-3.02e+00']\ncontrol, g'=8, no off-circle zero (delta=0 => double zero): lambda_min/max|T| for K=16,80: ['7.4e-03', '-3.7e-15']\nreal curve E: y^2=x^3+x+1 over F_5: zeros z=e^{+-i theta}, theta=2.306111 (=arccos(t/(2 sqrt q)))\n\nE4  symbol sum_{|k|<=K} w_k P_|k| e^{ik th} (analog of Ansatz 1): sharp partial sum vs Fejer-tapered (w_k=1-|k|/(K+1)):\n   real curve (g=1): K=8: sharp min -4.55, Fejer min +8.938e-02 | K=16: sharp min -8.59, Fejer min +5.836e-02 | K=32: sharp min -14.82, Fejer min +8.610e-03 | K=64: sharp min -29.00, Fejer min +6.957e-03\n   real-like background g'=8, no off-circle zero: K=8: sharp min +4.00, Fejer min +9.333e+00 | K=16: sharp min -12.00, Fejer min +1.176e+00 | K=32: sharp min -29.74, Fejer min +1.211e+00 | K=64: sharp min -53.60, Fejer min +5.358e-01\n   fake: g'=8 + off-circle quadruple delta=0.1: K=8: sharp min +5.70, Fejer min +9.374e+00 | K=16: sharp min -22.91, Fejer min +1.236e+00 | K=32: sharp min -311.69, Fejer min -1.806e+01 | K=64: sharp min -11591.84, Fejer min -1.445e+03\n\nE5  NNLS (analog of Ansatz 2): fit T_K = sum_x w_x C(x), C(x)_jl = cos((j-l)x), x on a grid in [0,pi]\n   real curve K=12: relative residual 1.12e-06; atoms: [(np.float64(2.3058), np.float64(0.7738)), (np.float64(2.3063), np.float64(1.2262))] (true theta 2.3061, expected weight 2)\n   fake (g'=4, offset 0.1) K=24: relative residual 0.384; min eigenvalue of T-fit: -39.630 (T's own min eigenvalue -38.806)\n\nE6  termwise domination by closed-point degree (analog of Ansatz 3), real curve K=16:\n   check Main - sum_d a_d P_d  equals T_K: max diff 3.3e-11; lambda_min(T_K)=-6.83e-15\n   lambda_min(Main - sum_{d<=D} a_d P_d) for D=0..16: ['-488264.25', '-488268.75', '-488270.25', '-488271.83', '-488273.88', '-488275.71', '-488277.22', '-488277.25', '-488271.12', '-488245.10', '-488135.06', '-487684.06', '-485915.89', '-479404.57', '-457349.89', '-390622.00', '-0.00']\n   random subsets of degree classes: PSD in 0 of 300; median lambda_min -249931.46, min -488242.49\n\nE7  rigidity: scale all closed-point weights by (1+t):\n   t=-1e-03: lambda_min = -4.876e+02\n   t=-1e-06: lambda_min = -4.685e-01\n   t=+1e-09: lambda_min = -4.583e-04\n   t=+1e-06: lambda_min = -4.591e-01\n   t=+1e-03: lambda_min = -4.872e+02\n","stderr":""}
