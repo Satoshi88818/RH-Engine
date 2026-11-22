@@ -1,0 +1,25 @@
+cd /home/squire && WEIL_DPS=100 timeout 285 python3 - <<'EOF' 2>&1 | grep -v Warning
+import json, math, time
+import mpmath as mp
+import weil_char as WC
+mp.mp.dps = 100
+N = 16
+def mins(name, L):
+    W = WC.WeilChar(name, L, N); M = W.matrix(); Ma = W.M_arch
+    return float(min(mp.eigsy(mp.matrix(Ma), eigvals_only=True))), float(min(mp.eigsy(mp.matrix(M), eigvals_only=True)))
+out = {}
+for name in ("chi_5", "chi_-3", "chi_-4", "chi_8"):
+    q, a, chi = WC.CHI[name]; first = next(n for n in range(2, 60) if chi(n) != 0 and all(n % r for r in range(2, n)))   # first prime with chi(p) != 0
+    t0 = time.time(); rows = []
+    for L in (0.30, 0.40, 0.50, 0.60, 0.70, 0.90):
+        ma, mf = mins(name, L); rows.append((L, ma, mf))
+    neg = [L for L, ma, mf in rows if ma < 0]
+    print(f"{name} (q={q}, first prime with chi(p)!=0: {first}, threshold L = ln({first})/2 = {math.log(first)/2:.4f}):  [{time.time()-t0:.0f}s]")
+    for L, ma, mf in rows: print(f"    L={L:.2f}: min eig arch-only = {ma:+.3e}   full = {mf:+.3e}")
+    out[name] = rows
+json.dump(out, open('weil_char_sweep.json', 'w'))
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"chi_5 (q=5, first prime with chi(p)!=0: 2, threshold L = ln(2)/2 = 0.3466):  [20s]\n    L=0.30: min eig arch-only = +4.894e-01   full = +4.894e-01\n    L=0.40: min eig arch-only = +1.561e-01   full = +2.160e-01\n    L=0.50: min eig arch-only = -1.114e-01   full = +9.029e-02\n    L=0.60: min eig arch-only = -3.367e-01   full = +2.042e-02\n    L=0.70: min eig arch-only = -5.324e-01   full = +4.796e-03\n    L=0.90: min eig arch-only = -8.618e-01   full = +4.553e-05\nchi_-3 (q=3, first prime with chi(p)!=0: 2, threshold L = ln(2)/2 = 0.3466):  [21s]\n    L=0.30: min eig arch-only = +2.666e-01   full = +2.666e-01\n    L=0.40: min eig arch-only = +2.741e-02   full = +7.622e-02\n    L=0.50: min eig arch-only = -1.476e-01   full = +2.123e-02\n    L=0.60: min eig arch-only = -2.823e-01   full = +3.542e-03\n    L=0.70: min eig arch-only = -3.895e-01   full = +2.084e-04\n    L=0.90: min eig arch-only = -5.492e-01   full = +1.193e-07\nchi_-4 (q=4, first prime with chi(p)!=0: 3, threshold L = ln(3)/2 = 0.5493):  [20s]\n    L=0.30: min eig arch-only = +5.543e-01   full = +5.543e-01\n    L=0.40: min eig arch-only = +3.151e-01   full = +3.151e-01\n    L=0.50: min eig arch-only = +1.401e-01   full = +1.401e-01\n    L=0.60: min eig arch-only = +5.369e-03   full = +3.450e-02\n    L=0.70: min eig arch-only = -1.018e-01   full = +6.588e-03\n    L=0.90: min eig arch-only = -2.615e-01   full = +2.740e-05\nchi_8 (q=8, first prime with chi(p)!=0: 3, threshold L = ln(3)/2 = 0.5493):  [21s]\n    L=0.30: min eig arch-only = +9.594e-01   full = +9.594e-01\n    L=0.40: min eig arch-only = +6.261e-01   full = +6.261e-01\n    L=0.50: min eig arch-only = +3.586e-01   full = +3.586e-01\n    L=0.60: min eig arch-only = +1.333e-01   full = +1.746e-01\n    L=0.70: min eig arch-only = -6.239e-02   full = +8.722e-02\n    L=0.90: min eig arch-only = -3.918e-01   full = +5.371e-03\n","stderr":""}
