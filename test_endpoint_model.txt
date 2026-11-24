@@ -1,0 +1,29 @@
+cd /home/squire && timeout 280 python3 - <<'EOF' 2>&1 | grep -v Warning
+import math, json
+import mpmath as mp
+mp.mp.dps = 100
+import weil_form as WF, weil_char as WC
+N = 16
+CASES = [("zeta", None, 2, 1, 0.37162), ("chi_-3", "chi_-3", 2, -1, 0.4140), ("chi_5", "chi_5", 2, -1, 0.4560), ("chi_-4", "chi_-4", 3, -1, 0.6046), ("chi_8", "chi_8", 3, -1, 0.6667)]
+res = []
+for label, name, p, chi_p, Lc in CASES:
+    W = WF.Weil(Lc, N) if name is None else WC.WeilChar(name, Lc, N); Mfull = W.matrix(); March = W.M_arch; L = mp.mpf(Lc)
+    c = 2 * mp.log(p) * chi_p / mp.sqrt(p); E = 2 * L - mp.log(p)
+    v = [W.scale[k] * WF.legendre_table(N, mp.mpf(-1))[k] for k in range(N)]; w = [W.scale[k] * WF.legendre_table(N, mp.mpf(1))[k] for k in range(N)]
+    row = []
+    for Ns in (3, 4, 5, 6, 8, 10, 16):
+        Mf = mp.matrix([[Mfull[i][j] for j in range(Ns)] for i in range(Ns)]); Ma = mp.matrix([[March[i][j] for j in range(Ns)] for i in range(Ns)])
+        Phi = mp.matrix(Ns, Ns)
+        for i in range(Ns):
+            for j in range(Ns): Phi[i, j] = -mp.sign(c) * (v[i] * w[j] + v[j] * w[i]) / 2
+        mu = max(mp.re(x) for x in mp.eig(mp.inverse(Mf) * Phi, left=False, right=False)); Epred = 1 / (mu * abs(c)) if mu > 0 else mp.inf
+        minarch = min(mp.eigsy(Ma, eigvals_only=True))
+        row.append((Ns, float(Epred), float(minarch)))
+    print(f"{label:7s} actual E_c = 2L_c - ln p = {float(E):.4f}  | " + "  ".join(f"Ns={Ns}: E_pred={Ep:.4f}, min eig arch={ma:+.1e}" for Ns, Ep, ma in row[:6]), flush=True)
+    res.append(dict(case=label, E_c=float(E), rows=row))
+json.dump(res, open('prime_threshold_lowdeg.json', 'w'))
+EOF
+
+Response:
+
+{"returncode":0,"stdout":"zeta    actual E_c = 2L_c - ln p = 0.0501  | Ns=3: E_pred=0.0924, min eig arch=+8.0e-03  Ns=4: E_pred=0.0832, min eig arch=+6.0e-04  Ns=5: E_pred=0.0832, min eig arch=+6.0e-04  Ns=6: E_pred=0.0617, min eig arch=+6.0e-04  Ns=8: E_pred=0.0440, min eig arch=+2.5e-04  Ns=10: E_pred=0.0327, min eig arch=+1.2e-04\nchi_-3  actual E_c = 2L_c - ln p = 0.1349  | Ns=3: E_pred=0.2015, min eig arch=+1.3e-03  Ns=4: E_pred=0.2015, min eig arch=+1.3e-03  Ns=5: E_pred=0.1229, min eig arch=+2.8e-04  Ns=6: E_pred=0.1229, min eig arch=+2.8e-04  Ns=8: E_pred=0.0809, min eig arch=-2.1e-05  Ns=10: E_pred=0.0634, min eig arch=-1.3e-04\nchi_5   actual E_c = 2L_c - ln p = 0.2189  | Ns=3: E_pred=0.2747, min eig arch=+2.4e-03  Ns=4: E_pred=0.2747, min eig arch=+2.4e-03  Ns=5: E_pred=0.1485, min eig arch=+7.8e-04  Ns=6: E_pred=0.1485, min eig arch=+7.8e-04  Ns=8: E_pred=0.1076, min eig arch=+3.7e-04  Ns=10: E_pred=0.0785, min eig arch=+2.2e-04\nchi_-4  actual E_c = 2L_c - ln p = 0.1106  | Ns=3: E_pred=0.1629, min eig arch=+1.2e-03  Ns=4: E_pred=0.1629, min eig arch=+1.2e-03  Ns=5: E_pred=0.1333, min eig arch=+3.7e-04  Ns=6: E_pred=0.1333, min eig arch=+3.7e-04  Ns=8: E_pred=0.0875, min eig arch=+9.3e-05  Ns=10: E_pred=0.0620, min eig arch=-7.9e-06\nchi_8   actual E_c = 2L_c - ln p = 0.2348  | Ns=3: E_pred=0.3051, min eig arch=+2.4e-03  Ns=4: E_pred=0.3051, min eig arch=+2.4e-03  Ns=5: E_pred=0.1764, min eig arch=+7.0e-04  Ns=6: E_pred=0.1764, min eig arch=+7.0e-04  Ns=8: E_pred=0.1160, min eig arch=+2.8e-04  Ns=10: E_pred=0.0908, min eig arch=+1.3e-04\n","stderr":""}
