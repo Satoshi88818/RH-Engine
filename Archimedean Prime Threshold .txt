@@ -1,0 +1,59 @@
+# Why does the archimedean-only Weil form fail shortly after the first prime enters?
+
+## Summary
+
+In `README_weil_archimedean.md` the archimedean-only Weil form first has a negative eigenvalue at L_c, a little above the support size ½ ln p at which the first prime p with χ(p) ≠ 0 enters (ζ: 0.3716 against 0.3466; χ₋₃: 0.4140; χ₅: 0.4560 against 0.3466; χ₋₄: 0.6046 and χ₈: 0.6667 against 0.5493). I proposed an explanation and tested it. **The explanation gets the direction right and the size wrong, so the offset is still unexplained.**
+
+1. **The hypothesis.** The archimedean-only form is M_arch = M_full + P, where P = 2Λ(p)χ(p)p^(−1/2) · A_g(ln p) is the prime term. Just above the threshold the lag ln p is close to the end of the support, so A_g(ln p) ≈ E · g(−L)g(L) with E = 2L − ln p. That would make the prime term a rank-one functional of the two endpoint values, and L_c would be fixed by how much the full form resists it.
+2. **What holds.** In all five cases the eigenvector of the negative eigenvalue has an endpoint product g(−L)g(L) of the sign that lets the prime term lower the form (opposite to the sign of χ(p)). So the negative mode is an endpoint-concentrated mode, as the hypothesis says.
+3. **What fails.** The linearised model overestimates the prime term: ‖P − cEΦ‖/‖P‖ is between 13 and 34 (for N = 16), and the predicted offsets 2L − ln p are 0.02–0.04 against the actual 0.05–0.23. The reason is that the linearisation A_g(2L − E) ≈ E g(−L)g(L) fails for the rapidly varying functions the Legendre basis contains near the ends.
+4. **What the data do say.** The onset is a *new* eigenvalue branch crossing zero, not the old smallest eigenvalue going negative (that one stays at about 10⁻³). The new branch is steep, with a slope of 1.2 to 2.8 per unit L. Its implied value at the prime's threshold, slope × offset, varies between 0.066 and 0.285 across the five cases. So there is no universal law for the offset that I can see.
+
+## 1. Setup
+
+On test functions supported in [−L, L], M_arch is the Weil form without the prime term, and M_full the form with it. Both are computed from the arithmetic side (`weil_form.py`, `weil_char.py`). Since M_arch does not contain the primes, its positivity range depends only on the conductor q and the parity a (through ln q and the Γ-factor); the full form is positive throughout. For L below the first prime's threshold M_arch = M_full ≥ 0, so L_c ≥ ½ ln p necessarily. The question is why L_c is only slightly above it.
+
+## 2. Results
+
+(N = 16 basis functions, 100-digit arithmetic; p is the first prime with χ(p) ≠ 0.)
+
+| case | p | c = 2Λχ(p)/√p | L_c | offset L_c − ½ ln p | endpoint-product sign of the negative mode | rank-one residual ‖P − cEΦ‖/‖P‖ | predicted offset (linearised) |
+|---|---|---|---|---|---|---|---|
+| ζ | 2 | +0.980 | 0.3716 | 0.0250 | as hypothesised | see `prime_threshold.json` | 0.02–0.04 |
+| χ₋₃ | 2 | −0.980 | 0.4140 | 0.0674 | as hypothesised | | |
+| χ₅ | 2 | −0.980 | 0.4560 | 0.1094 | as hypothesised | | |
+| χ₋₄ | 3 | −1.269 | 0.6046 | 0.0553 | as hypothesised | | |
+| χ₈ | 3 | −1.269 | 0.6667 | 0.1174 | as hypothesised | | |
+
+(The residuals (13–34) and predicted offsets (0.02–0.04) are in `prime_threshold.json` for each case.)
+
+**The onset is a steep new branch.** Smallest eigenvalue of M_arch at L_c + 0.004, its slope |min eig|/0.004 and the branch value at threshold m₀ = slope × offset:
+
+| case | offset | min eigenvalue at L_c + 0.004 | slope | m₀ |
+|---|---|---|---|---|
+| ζ | 0.0250 | −1.13×10⁻² | 2.82 | 0.071 |
+| χ₋₃ | 0.0674 | −7.9×10⁻³ | 1.98 | 0.133 |
+| χ₅ | 0.1094 | −1.04×10⁻² | 2.60 | 0.285 |
+| χ₋₄ | 0.0553 | −4.8×10⁻³ | 1.20 | 0.066 |
+| χ₈ | 0.1174 | −7.6×10⁻³ | 1.91 | 0.224 |
+
+At fixed parity L_c increases with ln q (odd characters: q = 3 → 0.414, q = 4 → 0.605; even characters: q = 5 → 0.456, q = 8 → 0.667), as expected because ln q adds a multiple of the identity to M_arch. That is the part of the offset coming from the archimedean data; I did not separate the remainder.
+
+## 3. Correction to the previous report
+
+While testing this I noticed that the statement "there is no spectral gap" in `README_weil_archimedean.md` was too strong. At L ≈ 0.37 the smallest eigenvalue of the full form is converged in N (4.9×10⁻⁴ for both N = 16 and N = 32), so a gap exists there. At L = 0.7 it is still falling with N (1.9×10⁻⁶ at N = 8 to 4.7×10⁻¹³ at N = 32), so I cannot say whether the infinite-dimensional form has a gap. I corrected that file and the report.
+
+## 4. Limitations
+
+- Only the first prime and only five L-functions, N = 16.
+- The Legendre basis resolves the end of the support poorly, which is exactly where the mechanism lives; a basis adapted to the endpoints could give a cleaner test of the rank-one picture.
+- The offset is therefore unexplained, not explained by a refined mechanism.
+
+## 5. Next steps
+
+- Repeat in a basis with good resolution at the endpoints (for example Chebyshev polynomials or functions with a prescribed endpoint behaviour) and check whether the rank-one picture then predicts the offset.
+- Track the new branch from its birth at the prime's threshold, to see whether it descends from the top of the spectrum or from a specific mode.
+
+## Files
+
+`prime_threshold.py`, `prime_threshold.json`; it uses `weil_form.py` and `weil_char.py`.

@@ -1,0 +1,75 @@
+cd /home/squire && cat > mk_ff_lean.py << 'EOF'
+import sys; sys.path.insert(0,'/home/squire')
+import numpy as np
+from fflib import *
+def fmt(M): return "[\n  "+",\n  ".join("["+", ".join(str(v) for v in r)+"]" for r in M)+"\n]"
+def nullvecs(L,K):
+    n=len(L)-1; out=[]
+    for s in range(K+1-n):
+        u=[0]*(K+1)
+        for m in range(n+1): u[s+n-m]=L[m]
+        out.append(u)
+    return out
+inst=[("E5",5,[1,3,5],5),("G2_7",7,[1,1,7,7,49],7)]
+blocks=[];thms=[]
+for name,q,L,K in inst:
+    T=T_exact(L,q,K); n=len(L)-1; U=nullvecs(L,K)
+    Tm=np.array(T,dtype=object)
+    ok=all(all(sum(T[i][j]*u[j] for j in range(K+1))==0 for i in range(K+1)) for u in U)
+    blk=[r[:n] for r in T[:n]]
+    blocks.append(f"def T_{name} : Mat := {fmt(T)}\ndef null_{name} : List (List Int) := {U}\ndef n_{name} : Nat := {n}\n")
+    thms.append(f"theorem {name}_null : (null_{name}.all (fun u => mulVec T_{name} u == List.replicate {K+1} 0)) = true := by decide +kernel\n\ntheorem {name}_block_pd : (minors (topLeft n_{name} T_{name})).all (· > 0) = true := by decide +kernel\n")
+    print(name,"exact null vectors ok:",ok,"; leading block minors:",None)
+# fake instance
+qf=5; Lf=[1,-1,-6,-5,25]; Kf=6; Tf=T_exact(Lf,qf,Kf)
+Tfl=np.array(Tf,dtype=float); w,v=np.linalg.eigh(Tfl); x=v[:,0]; xi=[int(round(c*10**6/np.abs(x).max())) for c in x]
+quad=sum(xi[i]*Tf[i][j]*xi[j] for i in range(Kf+1) for j in range(Kf+1))
+print("fake L=1-T-6T^2-5T^3+25T^4: min eigenvalue of T' (float) %.3e; integer vector gives exact x^T T' x = %d (<0: %s)"%(w[0],quad,quad<0))
+blocks.append(f"def T_fake : Mat := {fmt(Tf)}\ndef x_fake : List Int := {xi}\n")
+thms.append("theorem fake_negative : quad T_fake x_fake < 0 := by decide +kernel\n")
+hdr='''set_option maxRecDepth 100000
+/-
+Exact certificates for the finite-field analogue (Section 17.15 of Riemann_Hypothesis_Li_and_Monotonicity.md).
+For an L-polynomial L(T) = prod (1 - alpha_i T) of degree 2g over F_q, with power sums s_k = sum alpha_i^k (s_0 = 2g),
+define the integer Toeplitz-like matrix  T'[j][l] = q^min(j,l) * s_|j-l|.   With z_i = alpha_i / sqrt q one has
+x^T T' x = sum_i |P(z_i)|^2-type forms, so T' is positive semidefinite exactly when all |z_i| = 1 (Riemann hypothesis).
+Here the explicit formula is an exact algebraic identity (Newton's identities), and everything below is exact integer arithmetic.
+
+CHECKED (kernel, no axioms):
+  * E5, G2_7  (real curves: y^2 = x^3+x+1 over F_5, y^2 = x^5+x+1 over F_7): the integer vectors "shifted reversed L" annihilate T',
+    and the leading 2g x 2g block has positive leading minors; since these null vectors together with e_0..e_{2g-1} span the space,
+    T' is positive semidefinite of rank 2g (classical argument, not formalised).
+  * fake  (an integer L over "F_5" with functional equation, nonnegative integer closed-point counts, but roots off the circle):
+    an explicit integer vector x with x^T T' x < 0, so T' is not positive semidefinite.
+-/
+abbrev Mat := List (List Int)
+def dot (u v : List Int) : Int := (List.zipWith (· * ·) u v).foldl (· + ·) 0
+def mulVec (A : Mat) (x : List Int) : List Int := A.map (fun r => dot r x)
+def quad (A : Mat) (x : List Int) : Int := dot x (mulVec A x)
+def topLeft (n : Nat) (M : Mat) : Mat := (M.take n).map (fun r => r.take n)
+def minors (M : Mat) : List Int := Id.run do
+  let n := M.length
+  let mut a : Array (Array Int) := (M.map List.toArray).toArray
+  let mut prev : Int := 1
+  let mut out : Array Int := #[]
+  for k in [0:n] do
+    let piv := a[k]![k]!
+    out := out.push piv
+    for i in [k+1:n] do
+      let mut row := a[i]!
+      for j in [k+1:n] do
+        row := row.set! j ((a[i]![j]! * piv - a[i]![k]! * a[k]![j]!) / prev)
+      a := a.set! i row
+    prev := piv
+  return out.toList
+
+'''
+names=[t.split()[1] for t in "\n".join(thms).split("\n\n") if t.startswith("theorem")]
+open('/home/squire/FiniteFieldCertificates.lean','w').write(hdr+"\n".join(blocks)+"\n"+"\n".join(thms)+"\n"+"\n".join(f"#print axioms {n}" for n in names)+"\n")
+print("written")
+EOF
+python3 mk_ff_lean.py && export LEAN=/home/squire/lean415/lean-4.15.0-linux/bin && $LEAN/lean --version | head -1 && timeout 250 $LEAN/lean FiniteFieldCertificates.lean 2>&1 | cut -c1-200 | head; bash -c "$LEAN/lean FiniteFieldCertificates.lean >/dev/null 2>&1; echo lean exit code: \$?"
+
+Response:
+
+{"returncode":0,"stdout":"E5 exact null vectors ok: True ; leading block minors: None\nG2_7 exact null vectors ok: True ; leading block minors: None\nfake L=1-T-6T^2-5T^3+25T^4: min eigenvalue of T' (float) -9.736e+01; integer vector gives exact x^T T' x = -124459941917968 (<0: True)\nwritten\nLean (version 4.15.0, x86_64-unknown-linux-gnu, commit 11651562caae, Release)\n'E5_null' does not depend on any axioms\n'E5_block_pd' does not depend on any axioms\n'G2_7_null' does not depend on any axioms\n'G2_7_block_pd' does not depend on any axioms\n'fake_negative' does not depend on any axioms\nlean exit code: 0\n","stderr":""}

@@ -1,0 +1,16 @@
+cd /home/squire && python3 - << 'EOF'
+import sys; sys.path.insert(0,'/home/squire')
+import numpy as np, math
+from fflib import *
+q=5
+for a,b in [(-1,-6),(1,-6),(-3,3),(3,3),(-1,11),(-5,12)]:
+    L=[1,a,b,q*a,q*q]; D=60; N=counts(L,q,D); cp=closed_points(N,D)
+    first=next((k for k in range(1,D+1) if not(isinstance(cp[k],int) and cp[k]>=0)),None)
+    z=z_from_L(L,q); mods=sorted(set(np.round(np.abs(z),4)))
+    print(f"L=1{a:+d}T{b:+d}T^2{q*a:+d}T^3+25T^4: |z| values {mods}, offset d={max(abs(np.log(np.abs(z))))/math.log(q):.3f}; N_1..N_5={N[1:6]}; first degree with an invalid closed-point count (not a nonnegative integer) up to {D}: {first}")
+EOF
+cat lean_dl2.log; ls lean415 2>/dev/null | head -2
+
+Response:
+
+{"returncode":0,"stdout":"L=1-1T-6T^2-5T^3+25T^4: |z| values [np.float64(0.8502), np.float64(1.0), np.float64(1.1762)], offset d=0.101; N_1..N_5=[5, 13, 92, 609, 2865]; first degree with an invalid closed-point count (not a nonnegative integer) up to 60: None\nL=1+1T-6T^2+5T^3+25T^4: |z| values [np.float64(0.8502), np.float64(1.0), np.float64(1.1762)], offset d=0.101; N_1..N_5=[7, 13, 160, 609, 3387]; first degree with an invalid closed-point count (not a nonnegative integer) up to 60: None\nL=1-3T+3T^2-15T^3+25T^4: |z| values [np.float64(0.8388), np.float64(1.0), np.float64(1.1921)], offset d=0.109; N_1..N_5=[3, 23, 81, 555, 3078]; first degree with an invalid closed-point count (not a nonnegative integer) up to 60: None\nL=1+3T+3T^2+15T^3+25T^4: |z| values [np.float64(0.8388), np.float64(1.0), np.float64(1.1921)], offset d=0.109; N_1..N_5=[9, 23, 171, 555, 3174]; first degree with an invalid closed-point count (not a nonnegative integer) up to 60: None\nL=1-1T+11T^2-5T^3+25T^4: |z| values [np.float64(0.824), np.float64(1.2136)], offset d=0.120; N_1..N_5=[5, 47, 143, 507, 2950]; first degree with an invalid closed-point count (not a nonnegative integer) up to 60: None\nL=1-5T+12T^2-25T^3+25T^4: |z| values [np.float64(0.819), np.float64(1.0), np.float64(1.221)], offset d=0.124; N_1..N_5=[1, 25, 106, 513, 2901]; first degree with an invalid closed-point count (not a nonnegative integer) up to 60: None\nextracted\nlean-4.15.0-linux\n","stderr":""}
