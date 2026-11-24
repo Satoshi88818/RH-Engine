@@ -1,0 +1,9 @@
+cd /home/squire && python3 - <<'EOF'
+import json, math
+R = json.load(open('prime_threshold.json'))
+print("case     p  c      L_c     offset dL=L_c-ln(p)/2   min eig of arch-only form at L_c+0.004   steepness |slope| = |min eig|/0.004   m0 = slope*dL (branch value at the prime's threshold)")
+for r in R:
+    dL = r['L_c'] - math.log(r['p']) / 2; slope = abs(r['min_eig_arch_above']) / 0.004; print(f"{r['case']:7s} {r['p']}  {r['c']:+.3f}  {r['L_c']:.4f}   {dL:.4f}                   {r['min_eig_arch_above']:+.4e}                      {slope:6.2f}                         {slope*dL:.3f}")
+EOF
+
+

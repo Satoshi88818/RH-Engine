@@ -1,0 +1,37 @@
+cd /home/squire && cat > prime_threshold.py <<'EOF'
+"""Why does the archimedean-only form fail slightly after the first prime enters?  Test of the rank-one endpoint mechanism:
+ near threshold, A_g(ln p) ~ E g(-L) g(L) with E = 2L - ln p, so  M_arch = M_full + c E Phi,  Phi(g) = g(-L) g(L),  c = 2 Lambda(p) chi(p)/sqrt(p).
+ Prediction:  M_arch >= 0  iff  E |c| mu <= 1,  mu = largest eigenvalue of M_full^{-1} Phi_s  (Phi_s = -sign(c) Phi)."""
+import os, json, math, sys
+import numpy as np, mpmath as mp
+mp.mp.dps = 100
+import weil_form as WF, weil_char as WC
+N = 16
+CASES = [("zeta", None, 2, 1, 0.37162), ("chi_-3", "chi_-3", 2, -1, 0.4140), ("chi_5", "chi_5", 2, -1, 0.4560), ("chi_-4", "chi_-4", 3, -1, 0.6046), ("chi_8", "chi_8", 3, -1, 0.6667)]
+def build(name, L):
+    W = WF.Weil(L, N) if name is None else WC.WeilChar(name, L, N); M = W.matrix(); return W, M, W.M_arch
+out = []
+for label, name, p, chi_p, Lc in CASES:
+    W, M, Ma = build(name, Lc); L = mp.mpf(Lc); E = 2 * L - mp.log(p); c = 2 * mp.log(p) * chi_p / mp.sqrt(p)
+    v = [W.scale[k] * WF.legendre_table(N, mp.mpf(-1))[k] for k in range(N)]; w = [W.scale[k] * WF.legendre_table(N, mp.mpf(1))[k] for k in range(N)]
+    Phi = mp.matrix(N, N)
+    for i in range(N):
+        for j in range(N): Phi[i, j] = (v[i] * w[j] + v[j] * w[i]) / 2
+    Mf = mp.matrix(M); P = mp.matrix(Ma) - Mf
+    resid = mp.norm(P - c * E * Phi) / mp.norm(P)                       # how well is the prime term c E Phi ?
+    s = -1 if c > 0 else 1                                              # negative direction: sign of c Phi opposite
+    A = mp.inverse(Mf) * (s * Phi * (-1) if False else (-mp.sign(c)) * Phi)
+    ev = mp.eig(A, left=False, right=False); mu = max(mp.re(x) for x in ev)
+    E_pred = 1 / (mu * abs(c)); L_pred = (mp.log(p) + E_pred) / 2
+    # smallest eigenvalue of the arch-only form just above L_c, and endpoint concentration of its eigenvector
+    W2, M2, Ma2 = build(name, Lc + 0.004); Ea, Qa = mp.eigsy(mp.matrix(Ma2)); i0 = min(range(N), key=lambda i: Ea[i]); coef = [Qa[k, i0] for k in range(N)]
+    L2 = mp.mpf(Lc + 0.004); psi_m = [W2.scale[k] * WF.legendre_table(N, mp.mpf(-1))[k] for k in range(N)]; psi_p = [W2.scale[k] * WF.legendre_table(N, mp.mpf(1))[k] for k in range(N)]
+    gm = sum(coef[k] * psi_m[k] for k in range(N)); gp = sum(coef[k] * psi_p[k] for k in range(N)); phi_val = gm * gp
+    # fraction of the min-eigenvalue deficit explained by Phi: <u, c E' Phi u>
+    E2 = 2 * L2 - mp.log(p); expl = sum(coef[i] * (c * E2 * Phi_ij) * coef[j] for i in range(N) for j, Phi_ij in [(j, 0) for j in range(N)]) if False else None
+    out.append(dict(case=label, p=p, chi_p=chi_p, c=float(c), L_c=Lc, E_c=float(E), mu=float(mu), E_pred=float(E_pred), L_pred=float(L_pred), residual_rank_one=float(resid), min_eig_arch_above=float(Ea[i0]), endpoint_product=float(phi_val), g_end_sign=("opposite" if gm * gp * c > 0 else "same")))
+    print(f"{label:7s} p={p} chi(p)={chi_p:+d} c={float(c):+.3f}: L_c={Lc:.4f} E_c=2L_c-ln p={float(E):.4f} | rank-one prediction E_pred={float(E_pred):.4f} (L_pred={float(L_pred):.4f}) | ||P - cE*Phi||/||P|| = {float(resid):.3f} | endpoint product g(-L)g(L) of the negative eigenvector = {float(phi_val):+.3f} (c*Phi>0 means the prime term lowers the form there)", flush=True)
+json.dump(out, open('prime_threshold.json', 'w'), indent=1)
+EOF
+timeout 280 python3 prime_threshold.py 2>&1 | grep -v Warning
+
