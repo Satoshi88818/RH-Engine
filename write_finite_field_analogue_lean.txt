@@ -1,0 +1,79 @@
+cp /home/squire/FiniteFieldCertificates.lean /mnt/user-data/outputs/FiniteFieldCertificates.lean && cd /mnt/user-data/outputs && python3 - << 'PYEOF'
+p='Riemann_Hypothesis_Li_and_Monotonicity.md'
+s=open(p).read()
+i=s.index("## 18. Open Next Steps")
+add=r'''### 17.15 The finite-field analogue
+
+For a curve $C$ of genus $g$ over $\mathbb F_q$ the same construction exists, with every step finite and exact. This is the setting where a positivity proof is known (Weil, via the Hodge index theorem on $C\times C$), so it shows what the structure looks like when it can be proved.
+
+**Dictionary.** Let $L(T)=\prod_{i=1}^{2g}(1-\alpha_iT)$, $z_i=\alpha_i/\sqrt q$, $N_k=\#C(\mathbb F_{q^k})=q^k+1-s_k$ with $s_k=\sum_i\alpha_i^k$ (Newton's identities), $N_k=\sum_{d\mid k}d\,a_d$ with $a_d$ the number of closed points of degree $d$ (the "primes").
+
+| Number field ($\zeta$, Sections 14–17.14) | Curve over $\mathbb F_q$ |
+|---|---|
+| zero $\rho$, critical line | $z_i$, unit circle $\lvert z_i\rvert=1$ |
+| test function $h=\hat\varphi\hat\varphi^{\#}$ | Laurent polynomial $Q(z)=P(z)\overline{P}(1/z)$ |
+| explicit formula | $\sum_iQ(z_i)=\sum_kq_kP_k$, $P_k=\sum_iz_i^k=(q^k+1-N_k)q^{-k/2}$ ($P_0=2g$), an algebraic identity |
+| prime sum $\sum\Lambda(n)n^{-1/2}g(\log n)$ | $\sum_kN_kq^{-k/2}J_k$, $N_k$ counting closed points |
+| pole terms and archimedean term | pole terms $q^{k/2}+q^{-k/2}$ only (no archimedean place) |
+| Weil matrix $A$ on packets | Toeplitz matrix $T_K=[P_{\lvert j-l\rvert}]$, $K+1$ test functions $1,z,\dots,z^K$ |
+
+The matrix has an exact integer form: $T'_{jl}=q^{\min(j,l)}\,s_{\lvert j-l\rvert}$ ($s_0=2g$) is congruent to $T_K$ by $\operatorname{diag}(q^{j/2})$, so it has the same inertia.
+
+**Verification of the data.** $\#E(\mathbb F_{p^2})$ computed from $L$ agrees with a brute-force count over $\mathbb F_{p^2}$ for $E:y^2=x^3+x+1$ at $p=5,7,11$ ($N_2=27,55,140$); the counts $a_d$ of closed points are nonnegative integers (e.g. $9,9,33,162,612,2571,11232,48600$ for degrees $1$–$8$ over $\mathbb F_5$).
+
+**1. Structure of the matrix for real curves.** $T_K$ ($K=12$, 60 digits) has rank equal to the number of distinct zeros and nothing else: for $y^2=x^3+x+1$ over $\mathbb F_5$ and $\mathbb F_7$ the two positive eigenvalues are $14.336,\,11.664$ and $13.021,\,12.979$; for the genus-2 curve $y^2=x^5+x+1$ over $\mathbb F_7$ they are $14.662,14.277,11.576,11.485$; over $\mathbb F_5$ ($L=(1+5T^2)^2$, double roots) $28$ and $24$; all other eigenvalues are below $6\times10^{-60}$. The integer vectors "shifted reversed $L$" annihilate $T'$ exactly. The matrix is a Gram matrix indexed by the $2g$ zeros, with **no ladder of tiny eigenvalues** (that was an effect of infinitely many zeros).
+
+**2. Detection is a finite check.** A hypothetical off-circle quadruple $\{\rho e^{\pm i\theta},\,e^{\pm i\theta}/\rho\}$ ($\delta=\ln\rho$; offset $d=\delta/\ln q$ in $s$-units) added to $2g'$ evenly spread on-circle zeros. Smallest $K$ with $\lambda_{\min}(T_K)/\max\lvert T\rvert<-10^{-10}$:
+
+| $g'$ | $\delta=0.2$ | $0.1$ | $0.05$ | $0.02$ | $0.01$ |
+|---|---|---|---|---|---|
+| 1 | 4 | 4 | 4 | 4 | 4 |
+| 2 | 6 | 6 | 6 | 6 | 6 |
+| 4 | 10 | 10 | 10 | 10 | 10 |
+| 8 | 12 | 18 | 18 | 18 | 18 |
+| 16 | 14 | 24 | 34 | 34 | 34 |
+| 32 | 16 | 28 | 48 | 66 | 66 |
+
+For small offsets $K_{\min}=2g'+2$: once $T_K$ is large enough to be rank-deficient ($K+1>2g'+4$), any off-circle zero is exposed, with $\lambda_{\min}\propto\delta^2$, however small the offset. For larger offsets it appears earlier, at about $K\approx2.4/\delta$ to $3.2/\delta$. (With $g'=8$, $\delta=0.1$: $\lambda_{\min}/\max\lvert T\rvert=+0.42,+0.0125,-0.69,-2.6$ at $K=8,16,24,40$; the control with only on-circle zeros stays positive to rounding.) **The contrast with the number field is exact:** there the number of zeros up to height $T$ is unbounded, so the bandwidth (hence the prime cutoff) needed grew with $T$ (Section 17.5); here the zero set is finite and a check of size $2g+2$ suffices.
+
+**3. The ansätze of Sections 17.7 and 17.14, transposed.**
+
+- **Pointwise symbol (Ansatz 1).** The partial Fourier sum $\sum_{\lvert k\rvert\le K}P_{\lvert k\rvert}e^{ik\theta}$ is negative and grows linearly in $K$ for a real curve ($\min=-4.55,-8.59,-14.8,-29.0$ at $K=8,16,32,64$; Gibbs phenomenon), but the **Fejér-tapered** sum $\sum(1-\lvert k\rvert/(K+1))P_{\lvert k\rvert}e^{ik\theta}=\sum_iF_K(\theta-\theta_i)$ is nonnegative at every $K$ tried ($\min=+0.089,+0.058,+0.0086,+0.0070$). Adding an off-circle quadruple ($g'=8$, $\delta=0.1$) makes the tapered symbol negative at $K=32$ ($-18.1$) and $-1445$ at $K=64$. This is the same mechanism as the tapered probes of Section 17.6, where the tapered symbol for $\zeta$ stayed positive to $T=700$ with ratio $0.9997$.
+- **Frequency Gram factor (Ansatz 2).** Nonnegative least squares on a grid of angles recovers the zeros: for the real curve ($K=12$) the residual is $1.1\times10^{-6}$ and the atoms sit at $\theta=2.3058$ and $2.3063$ with total weight $2.0000$, around the true $\theta=\arccos(t/2\sqrt q)=2.3061$ (the conjugate pair counts twice). With the off-circle quadruple the residual is $0.384$ and $T-\text{fit}$ has minimum eigenvalue $-39.63$ against $-38.81$ for $T$ itself: not representable.
+- **Termwise domination by closed points (Ansatz 3).** $T_K=\text{Main}-\sum_da_dP_d$ with $P_d=d\sum_mq^{-dm/2}J_{dm}$ ($J_k$ the $\pm k$ shift matrices). For the real curve ($K=16$) $\lambda_{\min}(\text{Main}-\sum_{d\le D}a_dP_d)\approx-4.88\times10^5$ for every $D<16$ and returns to $0$ only at $D=16$; random subsets of the degree classes are positive semidefinite in $0$ of $300$ cases (median $-2.5\times10^5$). The scale is $q^{K/2}=3.9\times10^5$: here the closed points must cancel the **pole** terms $q^{k/2}$, a cancellation of order $10^{6}$, far stronger than the factor about $6$ seen for $\zeta$.
+- **Rigidity (Ansatz 4).** Scaling every closed-point weight by $1+t$ gives $\lambda_{\min}=-4.6\times10^{-4},\,-0.46,\,-487$ at $t=10^{-9},\,10^{-6},\,10^{-3}$ and $-0.47,\,-487$ at $t=-10^{-6},\,-10^{-3}$: the form is indefinite for **either** sign of $t$, with slope $\approx-4.6\times10^{5}$. The curve sits at the single point $t=0$ with zero margin in both directions (for $\zeta$ in the window of Section 17.14 reducing the weights was still allowed).
+
+**4. Exact, machine-checked instances.** The explicit formula here is an algebraic identity, so the certificates need no numerical enclosure. `FiniteFieldCertificates.lean` (Lean 4.15, kernel, no axioms, exit code 0) checks, in exact integer arithmetic:
+
+- `E5_null`, `E5_block_pd` ($y^2=x^3+x+1$ over $\mathbb F_5$, $K=5$): the four shifted copies of the reversed $L$ annihilate $T'$ and the leading $2\times2$ block has positive leading minors. Together with $e_0,e_1$ the null vectors span the space, so $T'$ is positive semidefinite of rank 2.
+- `G2_7_null`, `G2_7_block_pd` ($y^2=x^5+x+1$ over $\mathbb F_7$, $K=7$): the same with four null vectors and a $4\times4$ block, rank 4.
+- `fake_negative`: for the integer polynomial $L=1-T-6T^2-5T^3+25T^4$ over "$\mathbb F_5$", an explicit integer vector with $x^TT'x=-124{,}459{,}941{,}917{,}968<0$, so $T'$ is not positive semidefinite.
+
+The step "null vectors and block imply positive semidefinite" is a classical linear-algebra fact I did not formalize.
+
+**5. A caution about the Euler product.** The fake polynomial is not an artificial failure of the Euler product. Its roots have $\lvert z\rvert\in\{0.850,1,1.176\}$ (offset $d=0.10$), it has the functional equation, and **its closed-point counts $a_d$ are nonnegative integers for every degree up to 60** ($a_1,\dots,a_6=5,4,29,149,572,2553$); three more polynomials with offsets $0.10$–$0.11$ behave the same. Any integer $L$ gives integer $a_d$ (Witt-vector factorization), and positivity of $a_d$ is automatic for large $d$ when all roots satisfy $\lvert\alpha\rvert<q$. So an Euler product with nonnegative integer local data and a functional equation does **not** force the Riemann hypothesis; Weil's theorem needs the geometry of an actual curve (the Hodge index theorem). This qualifies Section 12, where the Davenport–Heilbronn function was used to show that an Euler product is needed: it is needed in the sense that a function without one fails, but not sufficient.
+
+**What this shows.** In the setting where positivity is true and provable, (i) the factorization that exists is over the $2g$ zeros (cohomologically, over Frobenius eigenvalues), not over closed points; (ii) the closed-point terms cancel the pole terms exactly and rigidly, with no termwise domination; (iii) the tapered symbol is pointwise positive and the sharp one is not; (iv) detecting a violation is a finite check; and (v) the input that proves positivity is geometric, not a property of the point counts. That is the analogue of the missing ingredient for $\zeta$: nothing visible in the prime data plays the role of the Hodge index theorem.
+
+**Limits.** Curves with $g\le2$ and small $q$; $K$ and $g'$ as stated; the sandbox working directory was reset during this step, so the code was rewritten and the Lean toolchain re-downloaded (the results above come from the rewritten code, and the point-count verification was rerun). I did not test Connes' adelic formulation, which is the nearest analogue for a number field.
+
+'''
+s=s[:i]+add+s[i:]
+old="So no argument that uses only those can prove RH for $\\zeta$. The Euler product is the missing ingredient, which supports your point."
+assert old in s
+s=s.replace(old,"So no argument that uses only those can prove RH for $\\zeta$. The Euler product is needed in that sense, which supports your point; but Section 17.15 shows it is not sufficient: an integer $L$-polynomial with a functional equation and nonnegative integer closed-point counts can have zeros off the line.")
+row="| What happens in the finite-field analogue? | Everything is finite and exact. The Weil matrix of a curve is a Toeplitz Gram matrix of the $2g$ Frobenius eigenvalues (rank $2g$, no ladder); detecting an off-circle zero is a check of size $2g+2$; the Fejér-tapered symbol is pointwise positive but the sharp one is not; closed points cancel the pole terms with no termwise domination; and exact Lean certificates cover two real curves and one fake $L$-polynomial that has nonnegative integer closed-point counts to degree 60 yet violates RH, so an Euler product with positive local data is not enough (Section 17.15). |\n"
+s=s.replace("| Can that method reach RH? |",row+"| Can that method reach RH? |",1)
+a=s.index("## 18. Open Next Steps"); b=s.index("## References")
+sec=s[a:b]
+sec=sec.replace("3. Test factorization ansätze not covered in Section 17.14: Connes' adelic form with a continuous place index including the archimedean place, and a finite-field analogue (curves over $\\mathbb F_q$, where the Hodge index theorem supplies the positivity) to see what a prime-indexed factorization looks like when it exists.\n","3. Formalize the finite-field explicit formula in Lean (Newton's identities relating $L(T)$, power sums and the Toeplitz matrix are algebraic, so this is feasible in core Lean) to obtain a fully formal instance of the whole chain, and test Connes' adelic formulation with a continuous place index including the archimedean place.\n")
+s=s[:a]+sec+s[b:]
+s=s.replace("bridge theorem in `ExplicitFormulaBridge.lean`.","bridge theorem in `ExplicitFormulaBridge.lean`, finite-field certificates in `FiniteFieldCertificates.lean`.",1)
+open(p,'w').write(s)
+print("ok")
+PYEOF
+grep -n "^### 17.15\|^## 18" Riemann_Hypothesis_Li_and_Monotonicity.md
+
+Response:
+
+{"returncode":0,"stdout":"ok\n1192:### 17.15 The finite-field analogue\n1247:## 18. Open Next Steps\n","stderr":""}

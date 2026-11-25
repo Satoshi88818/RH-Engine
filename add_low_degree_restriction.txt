@@ -1,0 +1,21 @@
+cd /home/squire && cp prime_threshold_lowdeg.json /mnt/user-data/outputs/ && cd /mnt/user-data/outputs && python3 - <<'EOF'
+p='README_prime_threshold_offset.md'; s=open(p).read()
+new = """## 2b. Restricting the model to low-degree (smooth) functions
+
+I checked whether the model fails only because the basis contains high-degree functions. At L = L_c I restricted M_full and the endpoint functional to polynomials of degree < N_s, with N_s = 3 to 10, and recomputed the predicted offset E_pred = 1/(μ|c|).
+
+| case | actual E_c | E_pred, N_s = 3 | N_s = 5 | N_s = 8 | N_s = 10 | smallest eigenvalue of the truncated archimedean-only form at L_c, N_s = 10 |
+|---|---|---|---|---|---|---|
+| ζ | 0.0501 | 0.0924 | 0.0832 | 0.0440 | 0.0327 | +1.2×10⁻⁴ |
+| χ₋₃ | 0.1349 | 0.2015 | 0.1229 | 0.0809 | 0.0634 | −1.3×10⁻⁴ |
+| χ₅ | 0.2189 | 0.2747 | 0.1485 | 0.1076 | 0.0785 | +2.2×10⁻⁴ |
+| χ₋₄ | 0.1106 | 0.1629 | 0.1333 | 0.0875 | 0.0620 | −7.9×10⁻⁶ |
+| χ₈ | 0.2348 | 0.3051 | 0.1764 | 0.1160 | 0.0908 | +1.3×10⁻⁴ |
+
+The prediction falls steadily with N_s and crosses the actual value at N_s of about 4 to 7, depending on the case, so there is no basis-independent prediction from this model. Also, for ζ, χ₅ and χ₈ the truncated archimedean-only form is still positive at L_c with 10 polynomial degrees: the negative mode needs more degrees than that, so it is not a smooth function but one localised near the ends of the support at a scale comparable to the offset. A model for the offset would therefore need a basis that resolves that scale, as proposed in the next steps. (Data: `prime_threshold_lowdeg.json`.)
+
+"""
+a = "## 3. Correction to the previous report"; assert a in s; s = s.replace(a, new + a, 1)
+s = s.replace("`prime_threshold.py`, `prime_threshold.json`;", "`prime_threshold.py`, `prime_threshold.json`, `prime_threshold_lowdeg.json`;")
+open(p,'w').write(s); print("readme ok")
+EOF
