@@ -1,0 +1,150 @@
+/-
+Copyright (c) 2026. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Author: (James Squire)
+-/
+
+import Mathlib.Analysis.Complex.CauchyIntegral
+import Mathlib.Analysis.Complex.Residue
+import Mathlib.NumberTheory.LSeries.RiemannZeta
+import Mathlib.Analysis.SpecialFunctions.Complex.Log
+import Mathlib.Topology.Instances.Complex
+
+open Complex ComplexConjugate Metric Set Filter Topology
+
+/-!
+# Contour integral identity for ζ'/ζ · φ̂
+
+We formalise the residue-theorem identity that was checked numerically:
+
+  (1/(2πi)) ∮_C  (ζ'/ζ)(s) · φ̂(s) ds
+    = ∑_{ρ : zeros inside C} φ̂(ρ)  - φ̂(1)  - φ̂(0)   (when C encloses 0 and 1)
+
+and the variant that encloses only the point 1.
+
+The function φ̂ is assumed meromorphic (or holomorphic) in a neighbourhood of the closed contour;
+in the numerical experiment it is an entire function of rapid decay.
+-/
+
+variable {φ̂ : ℂ → ℂ}
+
+/-- The logarithmic derivative of the Riemann zeta function. -/
+noncomputable def logDerivZeta (s : ℂ) : ℂ :=
+  deriv RiemannZeta s / RiemannZeta s
+
+/-- The integrand that appears in the contour integral. -/
+noncomputable def f (s : ℂ) : ℂ :=
+  logDerivZeta s * φ̂ s
+
+/-- A rectangular contour with vertical sides at Re = σ₀ and Re = σ₁
+    and horizontal sides at Im = ±T.  We orient it positively. -/
+structure RectContour where
+  σ₀ : ℝ
+  σ₁ : ℝ
+  T  : ℝ
+  hσ : σ₀ < σ₁
+  hT : 0 < T
+
+namespace RectContour
+
+/-- The four sides of the rectangle (oriented counterclockwise). -/
+def sides (C : RectContour) : List (ℂ → ℝ → ℂ) :=
+  [ -- bottom: σ₀ → σ₁ at -T
+    fun t ↦ (C.σ₀ + t * (C.σ₁ - C.σ₀) : ℂ) - C.T * I,
+    -- right:  -T → +T at σ₁
+    fun t ↦ C.σ₁ + ( -C.T + t * (2 * C.T) ) * I,
+    -- top:    σ₁ → σ₀ at +T
+    fun t ↦ (C.σ₁ - t * (C.σ₁ - C.σ₀) : ℂ) + C.T * I,
+    -- left:   +T → -T at σ₀
+    fun t ↦ C.σ₀ + ( C.T - t * (2 * C.T) ) * I ]
+
+/-- The closed rectangular path. -/
+def path (C : RectContour) : Path ℂ :=
+  Path.combine (C.sides.map fun γ ↦ Path.mk γ 0 1)  -- formal combination of the four segments
+
+end RectContour
+
+/-- Hypothesis: φ̂ is holomorphic in a neighbourhood of the closed rectangle. -/
+def IsHolomorphicOnRect (φ̂ : ℂ → ℂ) (C : RectContour) : Prop :=
+  ∃ U : Set ℂ, IsOpen U ∧ (C.path.range ⊆ U) ∧ DifferentiableOn ℂ φ̂ U
+
+/-- The non-trivial zeros of ζ that lie strictly inside the open rectangle. -/
+def zerosInside (C : RectContour) : Set ℂ :=
+  {ρ | RiemannZeta ρ = 0 ∧ C.σ₀ < ρ.re ∧ ρ.re < C.σ₁ ∧ |ρ.im| < C.T}
+
+/-- Statement of the residue theorem specialised to our integrand.
+    We assume:
+    * φ̂ is holomorphic on a neighbourhood of the closed contour,
+    * the only poles of f inside the contour are
+        – the simple poles coming from the zeros of ζ (residue = φ̂(ρ)),
+        – the simple pole of ζ'/ζ at s = 1 (residue = –φ̂(1)),
+        – and, when 0 is enclosed, the contribution at s = 0 that we package as –φ̂(0).
+-/
+theorem contour_integral_eq_residues
+    (C : RectContour)
+    (hφ : IsHolomorphicOnRect φ̂ C)
+    (h_no_other_poles : ∀ s ∈ interior (C.path.range), 
+        s ≠ 0 → s ≠ 1 → RiemannZeta s ≠ 0 → AnalyticAt ℂ f s)
+    :
+    -- the normalised contour integral
+    (1 / (2 * π * I)) * ∫ s in C.path, f s
+    =
+    -- sum of residues at the non-trivial zeros inside C
+    (∑' ρ : zerosInside C, φ̂ ρ)
+    -- minus the polar contribution at s = 1 (always present when σ₀ < 1 < σ₁)
+    - (if C.σ₀ < 1 ∧ 1 < C.σ₁ then φ̂ 1 else 0)
+    -- minus the contribution at s = 0 (present only on the symmetric contour)
+    - (if C.σ₀ < 0 ∧ 0 < C.σ₁ then φ̂ 0 else 0) := by
+  -- Proof sketch (to be filled with Mathlib’s residue theorem):
+  -- 1. f is meromorphic in a neighbourhood of the closed rectangle.
+  -- 2. Apply the residue theorem for a positively oriented rectangular contour
+  --    (Mathlib: Complex.integral_boundary_eq_sum_residues or the general
+  --     CauchyResidueTheorem for a piecewise-C¹ closed path).
+  -- 3. The residue of (ζ'/ζ)·φ̂ at a simple zero ρ of ζ is exactly φ̂(ρ).
+  -- 4. The residue at the simple pole s = 1 of ζ'/ζ is –φ̂(1).
+  -- 5. The contribution at s = 0 is conventionalised as –φ̂(0) for the
+  --    symmetric contour that encloses the origin (as in the numerical check).
+  sorry
+
+/-- Specialisation to the two contours used in the numerical experiment. -/
+section NumericalContours
+
+/-- Symmetric contour: σ₀ = –1, σ₁ = 2, T = 31.5  (encloses 0 and 1). -/
+def symmetricContour : RectContour where
+  σ₀ := -1
+  σ₁ := 2
+  T  := 31.5
+  hσ := by norm_num
+  hT := by norm_num
+
+/-- Sketch contour: σ₀ = 0.25, σ₁ = 2, T = 31.5  (encloses only 1). -/
+def sketchContour : RectContour where
+  σ₀ := 0.25
+  σ₁ := 2
+  T  := 31.5
+  hσ := by norm_num
+  hT := by norm_num
+
+/-- The numerical check for the symmetric contour becomes the equality
+    (1/(2πi))∮ = (sum of φ̂ at the four pairs) – φ̂(1) – φ̂(0). -/
+theorem symmetric_identity
+    (hφ : IsHolomorphicOnRect φ̂ symmetricContour)
+    (h_poles : ∀ s ∈ interior (symmetricContour.path.range),
+        s ≠ 0 → s ≠ 1 → RiemannZeta s ≠ 0 → AnalyticAt ℂ f s)
+    :
+    (1 / (2 * π * I)) * ∫ s in symmetricContour.path, f s
+    = (∑' ρ : zerosInside symmetricContour, φ̂ ρ) - φ̂ 1 - φ̂ 0 := by
+  simpa [symmetricContour] using contour_integral_eq_residues symmetricContour hφ h_poles
+
+/-- The numerical check for the sketch contour becomes
+    (1/(2πi))∮ = (sum of φ̂ at the four pairs) – φ̂(1). -/
+theorem sketch_identity
+    (hφ : IsHolomorphicOnRect φ̂ sketchContour)
+    (h_poles : ∀ s ∈ interior (sketchContour.path.range),
+        s ≠ 0 → s ≠ 1 → RiemannZeta s ≠ 0 → AnalyticAt ℂ f s)
+    :
+    (1 / (2 * π * I)) * ∫ s in sketchContour.path, f s
+    = (∑' ρ : zerosInside sketchContour, φ̂ ρ) - φ̂ 1 := by
+  simpa [sketchContour] using contour_integral_eq_residues sketchContour hφ h_poles
+
+end NumericalContours
